@@ -5,6 +5,8 @@ import cv2
 
 import numpy as np
 
+# from matplotlib import pyplot as plt
+
 
 def get_traffic_circle(circles, x_idx, y_len):
     """
@@ -148,7 +150,7 @@ def traffic_light_detection(img_in, radii_range):
     # the minimum distance between the centers of detected circles
     MIN_DIST = 40
     # higher threshold for histerisis   (lower = more sensitive)
-    THRESH_HI = 30
+    THRESH_HI = 40
     # the accumulator threshold hold for accumulation to occur
     # (lower = more sensitive)
     ACCUM_THRESH = 8
@@ -201,7 +203,123 @@ def stop_sign_detection(img_in):
     Returns:
         (x,y) tuple of the coordinates of the center of the stop sign.
     """
-    raise NotImplementedError
+    # Edge detection parameters
+    # sobel aperature
+    SOBEL_APT = 3
+    # canny high threshold to start the line
+    THRESH_HI = 95
+    # canny low threshold to continue the line
+    THRESH_LO = 70
+
+    # Line detection parameters (line detection uses edge detection)
+    # distance resolution of the accumulator in pixels
+    RHO = 1
+    # angle resolution of the accumulator in pixels
+    THETA = np.pi / 180
+    # minimum threshold for votes to count in the accumulator
+    THRESH_ACCUM = 25
+    # minimum length of a line
+    MIN_LENGTH = 25
+    # maximum gap in between lines
+    MAX_GAP = 4
+
+    # convert image to grayscale
+    img = cv2.cvtColor(img_in, cv2.COLOR_BGR2GRAY)
+    # find edges using canny
+    edges = cv2.Canny(img, THRESH_LO, THRESH_HI, apertureSize=SOBEL_APT)
+    # --------------- debug
+    # plt.subplot(121),plt.imshow(img,cmap = 'gray')
+    # plt.title('Original Image'), plt.xticks([]), plt.yticks([])
+    # plt.subplot(122),plt.imshow(edges,cmap = 'gray')
+    # plt.title('Edge Image'), plt.xticks([]), plt.yticks([])
+    # plt.show()
+    # --------------- debug
+
+    # <==================== find lines in image
+    lines = cv2.HoughLinesP(
+        edges, RHO, THETA, THRESH_ACCUM, minLineLength=MIN_LENGTH, maxLineGap=MAX_GAP
+    )
+    # --------------- debug
+    # cimg = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # for line in lines:
+    #     x1, y1, x2, y2 = line[0]
+    #     cv2.line(cimg, (x1, y1), (x2, y2), (0, 255, 0), 2)
+    # cv2.imshow("detected circles", cimg)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # --------------- debug
+
+    # <=================== find circles in image that bounds an octagon
+    # inverse of the accumulator ratio
+    DP = 1
+    # the minimum distance between the centers of detected circles
+    MIN_DIST = 100
+    # higher threshold for histerisis   (lower = more sensitive)
+    THRESH_HI = 30
+    # the accumulator threshold hold for accumulation to occur
+    # (lower = more sensitive)
+    ACCUM_THRESH = 8
+
+    # set min and max radius, larger than traffic light circles to filter them
+    # out
+    MIN_RADIUS = 45
+    MAX_RADIUS = 60
+
+    # convert image to grayscale
+    img = cv2.cvtColor(img_in, cv2.COLOR_BGR2GRAY)
+
+    # use HoughCircles to get the information of detected circles
+    circles = cv2.HoughCircles(
+        img,
+        cv2.HOUGH_GRADIENT,
+        DP,
+        MIN_DIST,
+        param1=THRESH_HI,
+        param2=ACCUM_THRESH,
+        minRadius=MIN_RADIUS,
+        maxRadius=MAX_RADIUS,
+    )
+
+    # --------------- debug
+    # cimg = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # circles = np.uint16(np.around(circles))
+
+    # for i in circles[0, :]:
+    #     # draw the outer circle
+    #     cv2.circle(cimg, (i[0], i[1]), i[2], (0, 255, 0), 2)
+    #     # draw the center of the circle
+    #     cv2.circle(cimg, (i[0], i[1]), 2, (0, 0, 255), 3)
+    # cv2.imshow("detected circles", cimg)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # --------------- debug
+
+    # for every circle found check to see if an line exists inside
+    # padding for the bounding circle
+    BOUND_THRESH = 4
+    # minumum number of lines that need to be detected inside the circle
+    # for it to qualify as a stop sign
+    MIN_LINES = 5
+    for circle in circles[0]:
+        lines_in_circle = 0
+        circle_x, circle_y, circle_r = circle
+        x_min = circle_x - circle_r - BOUND_THRESH
+        x_max = circle_x + circle_r + BOUND_THRESH
+        y_min = circle_y - circle_r - BOUND_THRESH
+        y_max = circle_y + circle_r + BOUND_THRESH
+        for line in lines:
+            x_1, y_1, x_2, y_2 = line[0]
+            # check bounds
+            if (
+                min((x_min, x_1, x_2)) == x_min
+                and max((x_max, x_1, x_2)) == x_max
+                and min((y_min, y_1, y_2)) == y_min
+                and max((y_max, y_1, y_2)) == y_max
+            ):
+                lines_in_circle += 1
+        if lines_in_circle > MIN_LINES:
+            return (circle_x, circle_y)
+    return None
 
 
 def warning_sign_detection(img_in):
@@ -245,7 +363,7 @@ def do_not_enter_sign_detection(img_in):
     # the minimum distance between the centers of detected circles
     MIN_DIST = 50
     # higher threshold for histerisis   (lower = more sensitive)
-    THRESH_HI = 30
+    THRESH_HI = 40
     # the accumulator threshold hold for accumulation to occur
     # (lower = more sensitive)
     ACCUM_THRESH = 8

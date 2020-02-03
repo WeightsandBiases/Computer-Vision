@@ -17,7 +17,7 @@ def extract_red(image):
     Returns:
         numpy.array: Output 2D array containing the red channel.
     """
-    red = image[:, :, 2].copy()     # a copy of the red channel of the image
+    red = image[:, :, 2].copy()  # a copy of the red channel of the image
     return red
 
 
@@ -32,7 +32,7 @@ def extract_green(image):
     Returns:
         numpy.array: Output 2D array containing the green channel.
     """
-    green = image[:, :, 1].copy()   # a copy of the green channel of the image
+    green = image[:, :, 1].copy()  # a copy of the green channel of the image
     return green
 
 
@@ -47,7 +47,7 @@ def extract_blue(image):
     Returns:
         numpy.array: Output 2D array containing the blue channel.
     """
-    blue = image[:, :, 0].copy()    # a copy of the blue channel of the image
+    blue = image[:, :, 0].copy()  # a copy of the blue channel of the image
     return blue
 
 
@@ -69,7 +69,7 @@ def swap_green_blue(image):
     blue = temp_image[:, :, 0].copy()
     # swap colors
     temp_image[:, :, 0] = green  # blue is now green
-    temp_image[:, :, 1] = blue   # green is now blue
+    temp_image[:, :, 1] = blue  # green is now blue
 
     return temp_image
 
@@ -110,13 +110,11 @@ def copy_paste_middle(src, dst, shape):
     dst_width_min = int(dst_width / 2 - width / 2)
     dst_width_max = int(dst_width / 2 + width / 2)
     # crop the middle of source image
-    src_cropped = src[src_height_min:src_height_max,
-                      src_width_min:src_width_max].copy()
+    src_cropped = src[src_height_min:src_height_max, src_width_min:src_width_max].copy()
     # insert cropped source image into a copy of destination
     # image
     dst_copy = np.copy(dst)
-    dst_copy[dst_height_min:dst_height_max,
-             dst_width_min:dst_width_max] = src_cropped
+    dst_copy[dst_height_min:dst_height_max, dst_width_min:dst_width_max] = src_cropped
     return dst_copy
 
 
@@ -195,12 +193,13 @@ def shift_image_left(image, shift):
     """
     height, width = image.shape
     # matrix for shifting
-    M = np.float32([[1, 0, -shift],
-                    [0, 1, 0]])
-    res = cv2.warpAffine(np.copy(image).astype(float),
-                         M,
-                         (width, height),
-                         borderMode=cv2.BORDER_REPLICATE)
+    M = np.float32([[1, 0, -shift], [0, 1, 0]])
+    res = cv2.warpAffine(
+        np.copy(image).astype(float),
+        M,
+        (width, height),
+        borderMode=cv2.BORDER_REPLICATE,
+    )
     return res
 
 
