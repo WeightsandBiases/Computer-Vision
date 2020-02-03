@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 
 import math
+
 # from matplotlib import pyplot as plt
 
 
@@ -52,8 +53,8 @@ def get_traffic_circles(circles):
             # check radius and x position difference
             if (
                 abs(circles[0][i][R_IDX] - circles[0][j][R_IDX]) < RADIUS_TOL
-                and abs(circles[0][i][X_POS_IDX] - circles[0][j][X_POS_IDX]) 
-                < X_POS_TOL):
+                and abs(circles[0][i][X_POS_IDX] - circles[0][j][X_POS_IDX]) < X_POS_TOL
+            ):
                 # decompose np array
                 traffic_circles.add(get_traffic_circle(circles, i, y_len))
                 traffic_circles.add(get_traffic_circle(circles, j, y_len))
@@ -228,7 +229,7 @@ def avg(args):
         (float) average of iterable
     """
     return sum(args) / len(args)
-    
+
 
 def get_endpts_touch(line_1, line_2, tolerance):
     """ 
@@ -246,23 +247,24 @@ def get_endpts_touch(line_1, line_2, tolerance):
     # hardcoded distance comparisons, I mean uh, loop unrolled
     # for optimization... yeah...
     if get_ecld_dist(x_1, y_1, x_3, y_3) < tolerance:
-        return ('1-3', avg((x_1, x_3)), avg((y_1, y_3)))
+        return ("1-3", avg((x_1, x_3)), avg((y_1, y_3)))
     elif get_ecld_dist(x_1, y_1, x_4, y_4) < tolerance:
-        return ('1-4', avg((x_1, x_4)), avg((y_1, y_4)))
+        return ("1-4", avg((x_1, x_4)), avg((y_1, y_4)))
     elif get_ecld_dist(x_2, y_2, x_3, y_3) < tolerance:
-        return ('2-3', avg((x_2, x_3)), avg((y_2, y_3)))
+        return ("2-3", avg((x_2, x_3)), avg((y_2, y_3)))
     elif get_ecld_dist(x_2, y_2, x_4, y_4) < tolerance:
-        return ('2-4', avg((x_2, x_4)), avg((y_2, y_4)))
+        return ("2-4", avg((x_2, x_4)), avg((y_2, y_4)))
     else:
         return None
 
 
-def is_equilateral(line_1, line_2, tolerance):
+def is_lines_angle(line_1, line_2, angle, tolerance):
     """
-    see if the line segments are equilateral
+    see if the line segments have a certain angle between them
     Args:
         line_1 (numpy.array): line 1 for comparison
         line_2 (numpy.array): line 2 for comparison
+        angle (float): angle to be evaluated in radians
         tolerance (float): tolerance for comparison
     Returns: 
         True if line segments are in an equilateral angle
@@ -274,7 +276,7 @@ def is_equilateral(line_1, line_2, tolerance):
     alpha_1 = math.atan2(y_4 - y_3, x_4 - x_3)
     theta = alpha_1 - alpha_0
     theta = abs(theta) % (math.pi)
-    return abs(theta - math.pi / 3) < tolerance
+    return abs(theta - angle) < tolerance
 
 
 def get_centroid(x_coord, y_coord):
@@ -291,7 +293,7 @@ def get_centroid(x_coord, y_coord):
 
 def get_eq_triang_xy(line_1, line_2, tolerance):
     """
-    see if the line segments are equilateral
+    get the x and y centroid of an equilateral triangel
     Args:
         line_1 (numpy.array): line 1 for comparison
         line_2 (numpy.array): line 2 for comparison
@@ -302,13 +304,13 @@ def get_eq_triang_xy(line_1, line_2, tolerance):
     x_1, y_1, x_2, y_2 = line_1
     x_3, y_3, x_4, y_4 = line_2
     touch_id, touch_x, touch_y = get_endpts_touch(line_1, line_2, tolerance)
-    if touch_id == '1-3':
+    if touch_id == "1-3":
         return get_centroid((x_2, x_4, touch_x), (y_2, y_4, touch_y))
-    elif touch_id == '1-4':
+    elif touch_id == "1-4":
         return get_centroid((x_2, x_3, touch_x), (y_2, y_3, touch_y))
-    elif touch_id == '2-3':
+    elif touch_id == "2-3":
         return get_centroid((x_1, x_4, touch_x), (y_1, y_4, touch_y))
-    elif touch_id == '2-4':
+    elif touch_id == "2-4":
         return get_centroid((x_1, x_3, touch_x), (y_1, y_3, touch_y))
     else:
         return None
@@ -351,8 +353,7 @@ def yield_sign_detection(img_in):
 
     # find lines in the image
     lines = cv2.HoughLinesP(
-        edges, RHO, THETA, THRESH_ACCUM,
-        minLineLength=MIN_LENGTH, maxLineGap=MAX_GAP
+        edges, RHO, THETA, THRESH_ACCUM, minLineLength=MIN_LENGTH, maxLineGap=MAX_GAP
     )
 
     # --------------- debug
@@ -370,8 +371,10 @@ def yield_sign_detection(img_in):
     TOUCH_THRESH = 3
     # threshold for length comparison
     LENTH_THRESH = 4
+    # angle of equilateral triangle
+    ANGLE = math.pi / 3
     # threshold for comparing with equilateral triangle
-    # about 10 deg
+    # about 5 deg
     THETA_THRESH = math.pi / 36
 
     lines_dim_z, lines_dim_y, lines_dim_x = lines.shape
@@ -381,9 +384,11 @@ def yield_sign_detection(img_in):
         for j in range(j_init, lines_dim_z):
             line_1 = lines[i][0]
             line_2 = lines[j][0]
-            if (is_same_len(line_1, line_2, LENTH_THRESH) and
-                get_endpts_touch(line_1, line_2, TOUCH_THRESH) and
-                    is_equilateral(line_1, line_2, THETA_THRESH)):
+            if (
+                is_same_len(line_1, line_2, LENTH_THRESH)
+                and get_endpts_touch(line_1, line_2, TOUCH_THRESH)
+                and is_lines_angle(line_1, line_2, ANGLE, THETA_THRESH)
+            ):
                 return get_eq_triang_xy(line_1, line_2, TOUCH_THRESH)
     return None
 
@@ -517,6 +522,31 @@ def stop_sign_detection(img_in):
     return None
 
 
+def get_diamond_xy(line_1, line_2, tolerance):
+    """
+    get the x and y centroid of a diamond
+    Args:
+        line_1 (numpy.array): line 1 for comparison
+        line_2 (numpy.array): line 2 for comparison
+        tolerance (float): tolerance for touching points
+    Returns: 
+        (tuple): x and y coordinates of diamond centroid
+    """
+    x_1, y_1, x_2, y_2 = line_1
+    x_3, y_3, x_4, y_4 = line_2
+    touch_id, touch_x, touch_y = get_endpts_touch(line_1, line_2, tolerance)
+    if touch_id == "1-3":
+        return get_centroid((x_2, x_4), (y_2, y_4))
+    elif touch_id == "1-4":
+        return get_centroid((x_2, x_3), (y_2, y_3))
+    elif touch_id == "2-3":
+        return get_centroid((x_1, x_4), (y_1, y_4))
+    elif touch_id == "2-4":
+        return get_centroid((x_1, x_3), (y_1, y_3))
+    else:
+        return None
+
+
 def warning_sign_detection(img_in):
     """Finds the centroid coordinates of a warning sign in the
     provided image.
@@ -527,7 +557,71 @@ def warning_sign_detection(img_in):
     Returns:
         (x,y) tuple of the coordinates of the center of the sign.
     """
-    raise NotImplementedError
+    # Edge detection parameters
+    # sobel aperature
+    SOBEL_APT = 3
+    # canny high threshold to start the line
+    THRESH_HI = 95
+    # canny low threshold to continue the line
+    THRESH_LO = 70
+
+    # Line detection parameters (line detection uses edge detection)
+    # distance resolution of the accumulator in pixels
+    RHO = 1
+    # angle resolution of the accumulator in pixels
+    THETA = np.pi / 180
+    # minimum threshold for votes to count in the accumulator
+    THRESH_ACCUM = 25
+    # minimum length of a line
+    MIN_LENGTH = 25
+    # maximum gap in between lines
+    MAX_GAP = 4
+
+    # convert image to grayscale
+    img = cv2.cvtColor(img_in, cv2.COLOR_BGR2GRAY)
+    # find edges using canny
+    edges = cv2.Canny(img, THRESH_LO, THRESH_HI, apertureSize=SOBEL_APT)
+
+    # find lines in the image
+    lines = cv2.HoughLinesP(
+        edges, RHO, THETA, THRESH_ACCUM, minLineLength=MIN_LENGTH, maxLineGap=MAX_GAP
+    )
+
+    # find a touching point of two line segments of equal length
+    # threshold for line segments to be considered touching
+    TOUCH_THRESH = 3
+    # threshold for length comparison
+    LENTH_THRESH = 4
+    # angle of diamond
+    ANGLE = math.pi / 2
+    # threshold for comparing with equilateral triangle
+    # about 5 deg
+    THETA_THRESH = math.pi / 36
+
+    # color thresholds
+    THRESH_B = 50
+    THRESH_G = 200
+    THRESH_R = 200
+
+    lines_dim_z, lines_dim_y, lines_dim_x = lines.shape
+    j_init = 0
+    for i in range(lines_dim_z):
+        j_init += 1
+        for j in range(j_init, lines_dim_z):
+            line_1 = lines[i][0]
+            line_2 = lines[j][0]
+            if (
+                is_same_len(line_1, line_2, LENTH_THRESH)
+                and get_endpts_touch(line_1, line_2, TOUCH_THRESH)
+                and is_lines_angle(line_1, line_2, ANGLE, THETA_THRESH)
+            ):
+                dmnd_x, dmnd_y = get_diamond_xy(line_1, line_2, TOUCH_THRESH)
+                sample = img_in[int(dmnd_y), int(dmnd_x)]
+                sample_b, sample_g, sample_r = sample
+                if sample_b < THRESH_B and sample_g > THRESH_G and sample_r > THRESH_R:
+                    return (int(dmnd_x), int(dmnd_y))
+
+    return None
 
 
 def construction_sign_detection(img_in):
@@ -540,7 +634,69 @@ def construction_sign_detection(img_in):
     Returns:
         (x,y) tuple of the coordinates of the center of the sign.
     """
-    raise NotImplementedError
+    # Edge detection parameters
+    # sobel aperature
+    SOBEL_APT = 3
+    # canny high threshold to start the line
+    THRESH_HI = 95
+    # canny low threshold to continue the line
+    THRESH_LO = 70
+
+    # Line detection parameters (line detection uses edge detection)
+    # distance resolution of the accumulator in pixels
+    RHO = 1
+    # angle resolution of the accumulator in pixels
+    THETA = np.pi / 180
+    # minimum threshold for votes to count in the accumulator
+    THRESH_ACCUM = 25
+    # minimum length of a line
+    MIN_LENGTH = 25
+    # maximum gap in between lines
+    MAX_GAP = 4
+
+    # convert image to grayscale
+    img = cv2.cvtColor(img_in, cv2.COLOR_BGR2GRAY)
+    # find edges using canny
+    edges = cv2.Canny(img, THRESH_LO, THRESH_HI, apertureSize=SOBEL_APT)
+
+    # find lines in the image
+    lines = cv2.HoughLinesP(
+        edges, RHO, THETA, THRESH_ACCUM, minLineLength=MIN_LENGTH, maxLineGap=MAX_GAP
+    )
+
+    # find a touching point of two line segments of equal length
+    # threshold for line segments to be considered touching
+    TOUCH_THRESH = 3
+    # threshold for length comparison
+    LENTH_THRESH = 4
+    # angle of diamond
+    ANGLE = math.pi / 2
+    # threshold for comparing with equilateral triangle
+    # about 5 deg
+    THETA_THRESH = math.pi / 36
+
+    # color thresholds
+    THRESH_B = 50
+    THRESH_G = 200
+    THRESH_R = 200
+
+    lines_dim_z, lines_dim_y, lines_dim_x = lines.shape
+    j_init = 0
+    for i in range(lines_dim_z):
+        j_init += 1
+        for j in range(j_init, lines_dim_z):
+            line_1 = lines[i][0]
+            line_2 = lines[j][0]
+            if (
+                is_same_len(line_1, line_2, LENTH_THRESH)
+                and get_endpts_touch(line_1, line_2, TOUCH_THRESH)
+                and is_lines_angle(line_1, line_2, ANGLE, THETA_THRESH)
+            ):
+                dmnd_x, dmnd_y = get_diamond_xy(line_1, line_2, TOUCH_THRESH)
+                sample = img_in[int(dmnd_y), int(dmnd_x)]
+                sample_b, sample_g, sample_r = sample
+                if sample_b < THRESH_B and sample_g < THRESH_G and sample_r > THRESH_R:
+                    return (int(dmnd_x), int(dmnd_y))
 
 
 def do_not_enter_sign_detection(img_in):
