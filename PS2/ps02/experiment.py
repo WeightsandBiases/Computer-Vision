@@ -10,6 +10,8 @@ import cv2
 
 import ps2
 
+import numpy as np
+
 
 def draw_tl_center(image_in, center, state):
     """Marks the center of a traffic light image and adds coordinates
@@ -38,7 +40,31 @@ def draw_tl_center(image_in, center, state):
         traffic light center and text that presents the numerical
         coordinates with the traffic light state.
     """
-    raise NotImplementedError
+    image_out = np.copy(image_in)
+
+    # draw the center of the traffic light
+    RADIUS = 2
+    COLOR = (0, 0, 0)
+    THICKNESS = 3
+    cv2.circle(image_out, center, RADIUS, COLOR, THICKNESS)
+    # draw state
+    cx, cy = center
+    OFFSET_1 = 70
+    OFFSET_2 = 20
+    BOTTOMLEFTCORNEROFTEXT_1 = (cx + OFFSET_1, cy)
+    BOTTOMLEFTCORNEROFTEXT_2 = (cx + OFFSET_1, cy + OFFSET_2)
+    FONT = cv2.FONT_HERSHEY_SIMPLEX
+    FONTSCALE = 0.5
+    LINETYPE = 2
+    TEXT_1 = "state: " + state
+    TEXT_2 = "x:{} y:{}".format(cx, cy)
+    cv2.putText(
+        image_out, TEXT_1, BOTTOMLEFTCORNEROFTEXT_1, FONT, FONTSCALE, COLOR, LINETYPE
+    )
+    cv2.putText(
+        image_out, TEXT_2, BOTTOMLEFTCORNEROFTEXT_2, FONT, FONTSCALE, COLOR, LINETYPE
+    )
+    return image_out
 
 
 def mark_traffic_signs(image_in, signs_dict):
@@ -63,7 +89,46 @@ def mark_traffic_signs(image_in, signs_dict):
         numpy.array: output image showing markers on each traffic
         sign.
     """
-    raise NotImplementedError
+
+    image_out = np.copy(image_in)
+
+    RADIUS = 2
+    COLOR = (0, 0, 0)
+    THICKNESS = 3
+    OFFSET_1 = 75
+    OFFSET_2 = 22
+    FONT = cv2.FONT_HERSHEY_SIMPLEX
+    FONTSCALE = 0.5
+    LINETYPE = 2
+
+    # traffic light special case
+    if "traffic_light" in signs_dict.keys():
+        sign_xy, state = signs_dict["traffic_light"]
+        sign_x, sign_y = sign_xy
+        bottom_corner_1 = (sign_x - OFFSET_2 * 2, sign_y + OFFSET_1)
+        bottom_corner_2 = (sign_x - OFFSET_2 * 2, sign_y + OFFSET_1 + OFFSET_2)
+        # mark the center of sign
+        cv2.circle(image_out, sign_xy, RADIUS, COLOR, THICKNESS)
+        # write text
+        text1 = "traffic_light"
+        text2 = "x:{} y:{}".format(sign_x, sign_y)
+        cv2.putText(image_out, text1, bottom_corner_1, FONT, FONTSCALE, COLOR, LINETYPE)
+        cv2.putText(image_out, text2, bottom_corner_2, FONT, FONTSCALE, COLOR, LINETYPE)
+        del signs_dict["traffic_light"]
+    # draw other signs
+    for sign_name, sign_xy in signs_dict.items():
+        sign_x, sign_y = sign_xy
+        bottom_corner_1 = (sign_x - OFFSET_2 * 2, sign_y + OFFSET_1)
+        bottom_corner_2 = (sign_x - OFFSET_2 * 2, sign_y + OFFSET_1 + OFFSET_2)
+        # mark the center of sign
+        cv2.circle(image_out, sign_xy, RADIUS, COLOR, THICKNESS)
+        # write text
+        text1 = sign_name
+        text2 = "x:{} y:{}".format(sign_x, sign_y)
+        cv2.putText(image_out, text1, bottom_corner_1, FONT, FONTSCALE, COLOR, LINETYPE)
+        cv2.putText(image_out, text2, bottom_corner_2, FONT, FONTSCALE, COLOR, LINETYPE)
+
+    return image_out
 
 
 def part_1():

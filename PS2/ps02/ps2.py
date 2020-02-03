@@ -40,7 +40,7 @@ def get_traffic_circles(circles):
     X_POS_IDX = 0
     R_IDX = 2  # radius
     # tolerane for how different the radii sizes can be
-    RADIUS_TOL = 2
+    RADIUS_TOL = 5
     # tolerance for how different the X position can be
     X_POS_TOL = 2
     # store traffic circles
@@ -70,14 +70,18 @@ def get_traffic_sign_xy(circles):
                    traffic circle
     """
     traffic_circles = get_traffic_circles(circles)
-    # average out the traffic circles x and y and return the distance
-    x_total = 0.0
-    y_total = 0.0
-    for circle_x, circle_y, circle_r in traffic_circles:
-        x_total += circle_x
-        y_total += circle_y
-    len_circles = len(traffic_circles)
-    return (x_total / len_circles, y_total / len_circles)
+    # check to see if traffic sign exists
+    if len(traffic_circles) == 3:
+        # average out the traffic circles x and y and return the distance
+        x_total = 0.0
+        y_total = 0.0
+        for circle_x, circle_y, circle_r in traffic_circles:
+            x_total += circle_x
+            y_total += circle_y
+        len_circles = len(traffic_circles)
+        return (x_total / len_circles, y_total / len_circles)
+    else:
+        return None
 
 
 def get_traffic_state(image, circles):
@@ -152,12 +156,12 @@ def traffic_light_detection(img_in, radii_range):
     # inverse of the accumulator ratio
     DP = 1
     # the minimum distance between the centers of detected circles
-    MIN_DIST = 40
-    # higher threshold for histerisis   (lower = more sensitive)
-    THRESH_HI = 40
+    MIN_DIST = 10
+    # higher threshold for histerisis   (higher = more sensitive)
+    THRESH_HI = 30
     # the accumulator threshold hold for accumulation to occur
     # (lower = more sensitive)
-    ACCUM_THRESH = 8
+    ACCUM_THRESH = 10
 
     # retrieve arguments
     min_radius = min(radii_range)
@@ -178,10 +182,26 @@ def traffic_light_detection(img_in, radii_range):
         maxRadius=max_radius,
     )
 
+    # --------------- debug
+    # cimg = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+    # circles = np.uint16(np.around(circles))
+    # for i in circles[0, :]:
+    #     # draw the outer circle
+    #     cv2.circle(cimg, (i[0], i[1]), i[2], (0, 255, 0), 2)
+    #     # draw the center of the circle
+    #     cv2.circle(cimg, (i[0], i[1]), 2, (0, 0, 255), 3)
+    # cv2.imshow("detected circles", cimg)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # --------------- debug
     traffic_sign_xy = get_traffic_sign_xy(circles)
-    traffic_state = get_traffic_state(img_in, circles)
-
-    return (traffic_sign_xy, traffic_state)
+    # check to see if traffic sign exists
+    if traffic_sign_xy:
+        ts_x, ts_y = traffic_sign_xy
+        traffic_state = get_traffic_state(img_in, circles)
+        return ((int(ts_x), int(ts_y)), traffic_state)
+    else:
+        return None
 
 
 def get_ecld_dist(x_1, y_1, x_2, y_2):
@@ -288,7 +308,7 @@ def get_centroid(x_coord, y_coord):
     Return:
         (tuple): x and y centroid of the points
     """
-    return (avg(x_coord), avg(y_coord))
+    return (int(avg(x_coord)), int(avg(y_coord)))
 
 
 def get_eq_triang_xy(line_1, line_2, tolerance):
@@ -499,7 +519,7 @@ def stop_sign_detection(img_in):
     BOUND_THRESH = 4
     # minumum number of lines that need to be detected inside the circle
     # for it to qualify as a stop sign
-    MIN_LINES = 5
+    MIN_LINES = 6
     for circle in circles[0]:
         lines_in_circle = 0
         circle_x, circle_y, circle_r = circle
@@ -518,7 +538,7 @@ def stop_sign_detection(img_in):
             ):
                 lines_in_circle += 1
         if lines_in_circle > MIN_LINES:
-            return (circle_x, circle_y)
+            return (int(circle_x), int(circle_y))
     return None
 
 
@@ -721,7 +741,7 @@ def do_not_enter_sign_detection(img_in):
 
     # set min and max radius, larger than traffic light circles to filter them
     # out
-    MIN_RADIUS = 35
+    MIN_RADIUS = 28
     MAX_RADIUS = 40
 
     # convert image to grayscale
@@ -778,7 +798,7 @@ def do_not_enter_sign_detection(img_in):
             and samp_w_r > WHITE_THRESH
             and samp_r_r > RED_THRESH
         ):
-            return (circle_x, circle_y)
+            return (int(circle_x), int(circle_y))
     return None
 
 
@@ -811,7 +831,29 @@ def traffic_sign_detection(img_in):
               These are just example values and may not represent a
               valid scene.
     """
-    raise NotImplementedError
+    signs = dict()
+    RADII_RANGE = range(10, 30, 1)
+    # check traffic signs
+    traffic_light_xy = traffic_light_detection(img_in, RADII_RANGE)
+    no_entry_xy = do_not_enter_sign_detection(img_in)
+    stop_xy = stop_sign_detection(img_in)
+    warning_xy = warning_sign_detection(img_in)
+    yield_xy = yield_sign_detection(img_in)
+    construction_xy = construction_sign_detection(img_in)
+
+    if traffic_light_xy:
+        signs.update({"traffic_light": traffic_light_xy})
+    if no_entry_xy:
+        signs.update({"no_entry": no_entry_xy})
+    if stop_xy:
+        signs.update({"stop": stop_xy})
+    if warning_xy:
+        signs.update({"warning": warning_xy})
+    if yield_xy:
+        signs.update({"yield": yield_xy})
+    if construction_xy:
+        signs.update({"construction": construction_xy})
+    return signs
 
 
 def traffic_sign_detection_noisy(img_in):
@@ -843,7 +885,30 @@ def traffic_sign_detection_noisy(img_in):
               These are just example values and may not represent a
               valid scene.
     """
-    raise NotImplementedError
+    img = np.copy(img_in)
+    # denoising parameters
+    # from the openCv docs
+    # Parameter regulating filter strength for luminance component.
+    # Bigger h value perfectly removes noise but also removes image details,
+    # smaller h value preserves details but also preserves some noise
+    H = 25
+    # The same as h but for color components.
+    # For most images value equals 10 will be enough to remove colored noise
+    # and do not distort colors
+    H_COLOR = 15
+    # Size in pixels of the template patch that is used to compute weights.
+    # Should be odd. Recommended value 7 pixels
+    TEMPLATE_WINDOW_SIZE = 7
+    # Size in pixels of the window that is used to compute weighted average for
+    # given pixel. Should be odd. Affect performance linearly:
+    # greater searchWindowsSize - greater denoising time.
+    # Recommended value 21 pixels
+    SEARCH_WINDOW_SIZE = 21
+
+    img = cv2.fastNlMeansDenoisingColored(
+        img, None, H, H_COLOR, TEMPLATE_WINDOW_SIZE, SEARCH_WINDOW_SIZE
+    )
+    return traffic_sign_detection(img)
 
 
 def traffic_sign_detection_challenge(img_in):
@@ -864,4 +929,4 @@ def traffic_sign_detection_challenge(img_in):
               These are just example values and may not represent a
               valid scene.
     """
-    raise NotImplementedError
+    return traffic_sign_detection(img_in)
