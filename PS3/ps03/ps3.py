@@ -79,7 +79,7 @@ def find_markers(image, template=None):
             in the order [top-left, bottom-left, top-right, bottom-right].
     """
     # Tolerance for threshold
-    TOL = 0.02
+    TOL = 0.025
     # number of markers
     N_MARKERS = 4
     # -----------------De Noise Image ------------------------------
