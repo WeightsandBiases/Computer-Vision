@@ -44,7 +44,7 @@ def helper_for_part_4_and_5(
 
     while image is not None:
 
-        print("Processing fame {}".format(frame_num))
+        print("Processing frame {}".format(frame_num))
 
         markers = ps3.find_markers(image, template)
 
@@ -290,7 +290,7 @@ if __name__ == "__main__":
     # part_1()
     # part_2()
     # part_3()
-    part_4_a()
+    # part_4_a()
     part_4_b()
     part_5_a()
     part_5_b()

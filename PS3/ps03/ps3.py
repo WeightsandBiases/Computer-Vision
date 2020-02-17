@@ -80,8 +80,6 @@ def find_markers(image, template=None):
     """
     # Tolerance for threshold
     TOL = 0.025
-    # number of markers
-    N_MARKERS = 4
     # image dimensions
     height, width = image.shape[:2]
     # -----------------De Noise Image ------------------------------
@@ -93,11 +91,11 @@ def find_markers(image, template=None):
     # Parameter regulating filter strength for luminance component.
     # Bigger h value perfectly removes noise but also removes image details,
     # smaller h value preserves details but also preserves some noise
-    H = 25
+    H = 15
     # The same as h but for color components.
     # For most images value equals 10 will be enough to remove colored noise
     # and do not distort colors
-    H_COLOR = 15
+    H_COLOR = 10
     # Size in pixels of the template patch that is used to compute weights.
     # Should be odd. Recommended value 7 pixels
     TEMPLATE_WINDOW_SIZE = 7
@@ -134,23 +132,23 @@ def find_markers(image, template=None):
     result = list(zip(loc.T[1] + templ_x_offset, loc.T[0] + templ_y_offset))
     samp_blue, samp_green, samp_red = sample
     print(sample)
-    if samp_blue < 137:
+    if samp_blue < 138:
         del result
         result = list()
         # deal with edge cases of real image
         # inverse of the accumulator ratio
         DP = 1
         # the minimum distance between the centers of detected circles
-        MIN_DIST = 150
+        MIN_DIST = 125
         # higher threshold for histerisis   (lower = more sensitive)
         THRESH_HI = 40
         # the accumulator threshold hold for accumulation to occur
         # (lower = more sensitive)
-        ACCUM_THRESH = 20
+        ACCUM_THRESH = 18
 
         # set min and max radius, larger than traffic light circles to filter them
         # out
-        MIN_RADIUS = 25
+        MIN_RADIUS = 10
         MAX_RADIUS = 50
 
         # convert image to grayscale
@@ -179,18 +177,21 @@ def find_markers(image, template=None):
         # cv2.waitKey(0)
         # cv2.destroyAllWindows()
         # --------------- debug
-
-        z_len, x_len, y_len = circles.shape
-        # indicies
-        X_POS_IDX = 0
-        Y_POS_IDX = 1
-        for i in range(x_len):
-            circle_x = circles[0][i][X_POS_IDX]
-            circle_y = circles[0][i][Y_POS_IDX]
-            result.append((int(circle_x), int(circle_y)))
-
+        if circles.any():
+            z_len, x_len, y_len = circles.shape
+            # indicies
+            X_POS_IDX = 0
+            Y_POS_IDX = 1
+            for i in range(x_len):
+                circle_x = circles[0][i][X_POS_IDX]
+                circle_y = circles[0][i][Y_POS_IDX]
+                result.append((int(circle_x), int(circle_y)))
+        else:
+            print("!!! Marker not detected !!!")
     # sort the results
-    sorted_result = sort_by_return(result)
+    sorted_result = [(0,0),(0,0),(0,0),(0,0)]
+    if result:
+        sorted_result = sort_by_return(result)
     return sorted_result
 
 
