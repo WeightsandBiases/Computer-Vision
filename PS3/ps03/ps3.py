@@ -35,7 +35,7 @@ def get_corners_list(image):
         list: List of four (x, y) tuples
             in the order [top-left, bottom-left, top-right, bottom-right].
     """
-    height, width = image.shape
+    height, width = image.shape[:2]
     # 0 indexed
     y_min = height - 1
     x_max = width - 1
@@ -82,6 +82,8 @@ def find_markers(image, template=None):
     TOL = 0.025
     # number of markers
     N_MARKERS = 4
+    # image dimensions
+    height, width = image.shape[:2]
     # -----------------De Noise Image ------------------------------
     # create copies as to not distrub the original images
     img = np.copy(image)
@@ -108,6 +110,7 @@ def find_markers(image, template=None):
     img = cv2.fastNlMeansDenoisingColored(
         img, None, H, H_COLOR, TEMPLATE_WINDOW_SIZE, SEARCH_WINDOW_SIZE
     )
+    sample = img[height // 3, width // 2]
     # -----------------End De Noise Image ------------------------------
 
     # convert to greyscale and floating point representation
@@ -129,15 +132,16 @@ def find_markers(image, template=None):
     templ_x_offset = templ_width // 2
     templ_y_offset = templ_height // 2
     result = list(zip(loc.T[1] + templ_x_offset, loc.T[0] + templ_y_offset))
-    # handle corner cases
-    if len(result) > 2 * N_MARKERS:
+    samp_blue, samp_green, samp_red = sample
+    print(sample)
+    if samp_blue < 137:
         del result
         result = list()
         # deal with edge cases of real image
         # inverse of the accumulator ratio
         DP = 1
         # the minimum distance between the centers of detected circles
-        MIN_DIST = 300
+        MIN_DIST = 150
         # higher threshold for histerisis   (lower = more sensitive)
         THRESH_HI = 40
         # the accumulator threshold hold for accumulation to occur
@@ -146,8 +150,8 @@ def find_markers(image, template=None):
 
         # set min and max radius, larger than traffic light circles to filter them
         # out
-        MIN_RADIUS = 30
-        MAX_RADIUS = 42
+        MIN_RADIUS = 25
+        MAX_RADIUS = 50
 
         # convert image to grayscale
         img_grey = img_grey.astype(np.uint8, copy=False)
@@ -184,6 +188,7 @@ def find_markers(image, template=None):
             circle_x = circles[0][i][X_POS_IDX]
             circle_y = circles[0][i][Y_POS_IDX]
             result.append((int(circle_x), int(circle_y)))
+
     # sort the results
     sorted_result = sort_by_return(result)
     return sorted_result
@@ -209,9 +214,9 @@ def draw_box(image, markers, thickness=1):
     tuple(markers)
     p1, p2, p3, p4 = markers
     cv2.line(image_out, p1, p2, COLOR, thickness=thickness)
-    cv2.line(image_out, p2, p3, COLOR, thickness=thickness)
+    cv2.line(image_out, p2, p4, COLOR, thickness=thickness)
     cv2.line(image_out, p3, p4, COLOR, thickness=thickness)
-    cv2.line(image_out, p4, p1, COLOR, thickness=thickness)
+    cv2.line(image_out, p3, p1, COLOR, thickness=thickness)
     return image_out
 
 
@@ -242,9 +247,9 @@ def project_imageA_onto_imageB(imageA, imageB, homography):
     # source matrix to store values
     s_matrix = np.zeros((3, src_height * src_width), np.int32)
     s_matrix[2, :] = 1
-    for x in range(src_width):
-        s_matrix[0, x * src_height: (x + OFFSET) * src_height] = x
-        s_matrix[1, x * src_height: (x + OFFSET) * src_height] = np.arange(src_height)
+    for i in range(src_width):
+        s_matrix[0, i * src_height: (i + OFFSET) * src_height] = i
+        s_matrix[1, i * src_height: (i + OFFSET) * src_height] = np.arange(src_height)
     # computer transform
     dst_matrix = np.dot(homography, s_matrix)
     dst_matrix[:, :] = dst_matrix[:, :] / dst_matrix[2, :]

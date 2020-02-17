@@ -287,9 +287,9 @@ if __name__ == "__main__":
     print("--- Problem Set 3 ---")
     # Comment out the sections you want to skip
 
-    part_1()
-    part_2()
-    part_3()
+    # part_1()
+    # part_2()
+    # part_3()
     part_4_a()
     part_4_b()
     part_5_a()
