@@ -49,8 +49,8 @@ def ssim(x, y, k1, k2):
     n = x_gray.size
     sxy = np.sum(x_c * y_c) / (n - 1)
 
-    c1 = (255 * k1)**2
-    c2 = (255 * k2)**2
+    c1 = (255 * k1) ** 2
+    c2 = (255 * k2) ** 2
 
     num = (2 * ux * uy + c1) * (2 * sxy + c2)
     den = (ux ** 2 + uy ** 2 + c1) * (sx ** 2 + sy ** 2 + c2)
@@ -62,14 +62,18 @@ class AssignmentTests(unittest.TestCase):
     @classmethod
     def setUpClass(self):
         self.height, self.width = height, width = 200, 500  # Rows, Cols
-        self.corner_positions = [(0, 0), (0, height - 1), (width - 1, 0),
-                                 (width - 1, height - 1)]
+        self.corner_positions = [
+            (0, 0),
+            (0, height - 1),
+            (width - 1, 0),
+            (width - 1, height - 1),
+        ]
 
         # Creates a gradient color image for testing
         y = np.linspace(1, 255, height)
         x = np.linspace(1, 255, width)
         a, b = np.meshgrid(x, y)
-        self.test_grad_image = cv2.merge((a, b, b[::-1])).astype('uint8')
+        self.test_grad_image = cv2.merge((a, b, b[::-1])).astype("uint8")
         self.test_grad_image.setflags(write=False)  # Copies will be writeable
 
         # Test markers.
@@ -78,8 +82,9 @@ class AssignmentTests(unittest.TestCase):
 
         # Homography for testing
         self.homography = cv2.getPerspectiveTransform(
-            np.array(self.corner_positions, 'float32'),
-            np.array(self.marker_positions, 'float32'))
+            np.array(self.corner_positions, "float32"),
+            np.array(self.marker_positions, "float32"),
+        )
         self.homography.setflags(write=False)  # Copies will be writeable
 
     def test_get_corners_list(self):
@@ -92,15 +97,20 @@ class AssignmentTests(unittest.TestCase):
         ValueIndexError = "%s value at index %d off by %f"
 
         for i, (a, b) in enumerate(zip(clist, self.corner_positions)):
-            self.assertEqual(a[0], b[0],
-                             msg=ValueIndexError % ('X', i, abs(a[0] - b[0])))
-            self.assertEqual(a[1], b[1],
-                             msg=ValueIndexError % ('Y', i, abs(a[1] - b[1])))
+            self.assertEqual(
+                a[0], b[0], msg=ValueIndexError % ("X", i, abs(a[0] - b[0]))
+            )
+            self.assertEqual(
+                a[1], b[1], msg=ValueIndexError % ("Y", i, abs(a[1] - b[1]))
+            )
 
     def test_find_markers_simple_rectangle(self):
 
-        file_names = ['simple_rectangle.png', 'simple_rectangle_noisy.png',
-                      'simple_rectangle_noisy_gaussian.png']
+        file_names = [
+            "simple_rectangle.png",
+            "simple_rectangle_noisy.png",
+            "simple_rectangle_noisy_gaussian.png",
+        ]
 
         template = cv2.imread("input_images/template.jpg")
 
@@ -114,30 +124,38 @@ class AssignmentTests(unittest.TestCase):
 
             ret_markers = ps3.find_markers(test_image, template)
 
-            self.assertTrue(len(markers_pos) == len(ret_markers),
-                            msg='Not found exact number of markers. '
-                                'Returned: {}. Expected: {}'
-                                ''.format(len(ret_markers), len(markers_pos)))
-
+            self.assertTrue(
+                len(markers_pos) == len(ret_markers),
+                msg="Not found exact number of markers. "
+                "Returned: {}. Expected: {}"
+                "".format(len(ret_markers), len(markers_pos)),
+            )
 
             for act_pt, ret_pt in zip(markers_pos, ret_markers):
 
                 x_dist_test = abs(ret_pt[0] - act_pt[0]) <= thresh
-                self.assertTrue(x_dist_test,
-                                msg='X point is too far from reference. '
-                                    'Returned: {}. Expected: {}'
-                                    ''.format(ret_pt[0], act_pt[0]))
+                self.assertTrue(
+                    x_dist_test,
+                    msg="X point is too far from reference. "
+                    "Returned: {}. Expected: {}"
+                    "".format(ret_pt[0], act_pt[0]),
+                )
 
                 y_dist_test = abs(ret_pt[1] - act_pt[1]) <= thresh
-                self.assertTrue(y_dist_test,
-                                msg='Y point is too far from reference. '
-                                    'Returned: {}. Expected: {}'
-                                    ''.format(ret_pt[1], act_pt[1]))
+                self.assertTrue(
+                    y_dist_test,
+                    msg="Y point is too far from reference. "
+                    "Returned: {}. Expected: {}"
+                    "".format(ret_pt[1], act_pt[1]),
+                )
 
     def test_find_markers_wall_image(self):
 
-        file_names = ['rectangle_wall.png', 'rectangle_wall_noisy.png',
-                      'rectangle_wall_noisy_gaussian.png']
+        file_names = [
+            "rectangle_wall.png",
+            "rectangle_wall_noisy.png",
+            "rectangle_wall_noisy_gaussian.png",
+        ]
 
         template = cv2.imread("input_images/template.jpg")
 
@@ -151,51 +169,59 @@ class AssignmentTests(unittest.TestCase):
 
             ret_markers = ps3.find_markers(test_image, template)
 
-
-            self.assertTrue(len(markers_pos) == len(ret_markers),
-                            msg='Not found exact number of markers. '
-                                'Returned: {}. Expected: {}'
-                                ''.format(len(ret_markers), len(markers_pos)))
+            self.assertTrue(
+                len(markers_pos) == len(ret_markers),
+                msg="Not found exact number of markers. "
+                "Returned: {}. Expected: {}"
+                "".format(len(ret_markers), len(markers_pos)),
+            )
 
             for act_pt, ret_pt in zip(markers_pos, ret_markers):
 
                 x_dist_test = abs(ret_pt[0] - act_pt[0]) <= thresh
-                self.assertTrue(x_dist_test,
-                                msg='X point is too far from reference. '
-                                    'Returned: {}. Expected: {}'
-                                    ''.format(ret_pt[0], act_pt[0]))
+                self.assertTrue(
+                    x_dist_test,
+                    msg="X point is too far from reference. "
+                    "Returned: {}. Expected: {}"
+                    "".format(ret_pt[0], act_pt[0]),
+                )
 
                 y_dist_test = abs(ret_pt[1] - act_pt[1]) <= thresh
-                self.assertTrue(y_dist_test,
-                                msg='Y point is too far from reference. '
-                                    'Returned: {}. Expected: {}'
-                                    ''.format(ret_pt[1], act_pt[1]))
+                self.assertTrue(
+                    y_dist_test,
+                    msg="Y point is too far from reference. "
+                    "Returned: {}. Expected: {}"
+                    "".format(ret_pt[1], act_pt[1]),
+                )
 
     def test_solving_for_homography(self):
         # Gets the student's result
-        homography = ps3.find_four_point_transform(self.corner_positions,
-                                                   self.marker_positions)
+        homography = ps3.find_four_point_transform(
+            self.corner_positions, self.marker_positions
+        )
 
-        self.assertEqual(homography.shape, (3, 3),
-                         msg="Homography should be a 3 by 3 array.")
+        self.assertEqual(
+            homography.shape, (3, 3), msg="Homography should be a 3 by 3 array."
+        )
 
         self.assertTrue(
-            homography.dtype not in ('uint8', 'int', 'int8', 'int16', 'int32'),
-            msg="Homography data type should be float")
+            homography.dtype not in ("uint8", "int", "int8", "int16", "int32"),
+            msg="Homography data type should be float",
+        )
 
-        self.assertTrue(0.999 < homography[2, 2] < 1.001,
-                        msg="Bottom right of homography should be 1")
+        self.assertTrue(
+            0.999 < homography[2, 2] < 1.001,
+            msg="Bottom right of homography should be 1",
+        )
 
         # Using "[0]" to change from 3D to 2D arrays of points
-        student_warped_corners = \
-            cv2.perspectiveTransform(
-                np.array([self.corner_positions], 'float32'),
-                homography)[0]
+        student_warped_corners = cv2.perspectiveTransform(
+            np.array([self.corner_positions], "float32"), homography
+        )[0]
 
-        cv2_warped_corners = \
-            cv2.perspectiveTransform(
-                np.array([self.corner_positions], 'float32'),
-                self.homography)[0]
+        cv2_warped_corners = cv2.perspectiveTransform(
+            np.array([self.corner_positions], "float32"), self.homography
+        )[0]
 
         acceptable_offset = 1.0
 
@@ -204,34 +230,34 @@ class AssignmentTests(unittest.TestCase):
         for a, b in zip(student_warped_corners, cv2_warped_corners):
             self.assertTrue(
                 np.linalg.norm(np.array(a) - np.array(b)) <= acceptable_offset,
-                msg=error_msg)
+                msg=error_msg,
+            )
 
     def test_projecting_image(self):
         black_bg = np.zeros_like(self.test_grad_image)
 
         # Get the student's result
-        ret_image = ps3.project_imageA_onto_imageB(self.test_grad_image.copy(),
-                                                   black_bg, self.homography)
+        ret_image = ps3.project_imageA_onto_imageB(
+            self.test_grad_image.copy(), black_bg, self.homography
+        )
 
-        err_msg = "Output array shape should be same shape " \
-                  "as 2nd parameter image."
+        err_msg = "Output array shape should be same shape " "as 2nd parameter image."
 
         self.assertEqual(ret_image.shape, black_bg.shape, msg=err_msg)
 
         self.assertEqual(ret_image.dtype, black_bg.dtype, msg=err_msg)
 
         # Creates a comparison final image
-        comparison_image = cv2.warpPerspective(self.test_grad_image,
-                                               self.homography,
-                                               (self.width, self.height))
+        comparison_image = cv2.warpPerspective(
+            self.test_grad_image, self.homography, (self.width, self.height)
+        )
 
         # Test the entire image total value difference
         diff = ssim(ret_image, comparison_image, 1e-3, 1e-3)
 
         acceptable_ssim = 0.95
 
-        error_msg = "Warp is too far from expected result (diff={})".format(
-            diff)
+        error_msg = "Warp is too far from expected result (diff={})".format(diff)
 
         self.assertTrue(diff >= acceptable_ssim, msg=error_msg)
 

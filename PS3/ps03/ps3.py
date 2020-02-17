@@ -4,6 +4,9 @@ CS6476 Problem Set 3 imports. Only Numpy and cv2 are allowed.
 import cv2
 import numpy as np
 
+# from scipy.cluster.vq import kmeans
+import math
+
 
 def euclidean_distance(p0, p1):
     """Gets the distance between two (x,y) points
@@ -15,8 +18,10 @@ def euclidean_distance(p0, p1):
     Return:
         float: The distance between points
     """
+    x_1, y_1 = p0
+    x_2, y_2 = p1
 
-    raise NotImplementedError
+    return math.sqrt((x_1 - x_2) ** 2 + (y_1 - y_2) ** 2)
 
 
 def get_corners_list(image):
@@ -36,6 +41,24 @@ def get_corners_list(image):
     raise NotImplementedError
 
 
+def sort_by_return(list_of_tuples):
+    """
+    sort list of tuples for a specific return template
+    Args:
+        list_of_tuples (list): list of 4 x,y tuples
+    Returns:
+        list: List of four (x, y) tuples
+            in the order [top-left, bottom-left, top-right, bottom-right].
+    """
+    list_of_tuples = sorted(list_of_tuples, key=lambda item: item[0])
+    left_side = list_of_tuples[0:2]
+    right_side = list_of_tuples[2:4]
+    left_side = sorted(left_side, key=lambda item: item[1])
+    right_side = sorted(right_side, key=lambda item: item[1])
+    result = left_side + right_side
+    return result
+
+
 def find_markers(image, template=None):
     """Finds four corner markers.
 
@@ -50,8 +73,72 @@ def find_markers(image, template=None):
         list: List of four (x, y) tuples
             in the order [top-left, bottom-left, top-right, bottom-right].
     """
+    # Tolerance for threshold
+    TOL = 0.015
+    # Number of markers
+    # N_MARKERS = 4
+    # store result in a list
+    result = list()
+    # create copies as to not distrub the original images
+    img = np.copy(image)
+    # denoising parameters
+    # from the openCv docs
+    # Parameter regulating filter strength for luminance component.
+    # Bigger h value perfectly removes noise but also removes image details,
+    # smaller h value preserves details but also preserves some noise
+    H = 25
+    # The same as h but for color components.
+    # For most images value equals 10 will be enough to remove colored noise
+    # and do not distort colors
+    H_COLOR = 15
+    # Size in pixels of the template patch that is used to compute weights.
+    # Should be odd. Recommended value 7 pixels
+    TEMPLATE_WINDOW_SIZE = 7
+    # Size in pixels of the window that is used to compute weighted average for
+    # given pixel. Should be odd. Affect performance linearly:
+    # greater searchWindowsSize - greater denoising time.
+    # Recommended value 21 pixels
+    SEARCH_WINDOW_SIZE = 21
 
-    raise NotImplementedError
+    img = cv2.fastNlMeansDenoisingColored(
+        img, None, H, H_COLOR, TEMPLATE_WINDOW_SIZE, SEARCH_WINDOW_SIZE
+    )
+    templ = np.copy(template)
+    # convert to greyscale and floating point representation
+    img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    templ_grey = cv2.cvtColor(templ, cv2.COLOR_BGR2GRAY)
+    img_grey = img_grey.astype(np.float32, copy=False)
+    templ_grey = templ_grey.astype(np.float32, copy=False)
+    # find matches of the templates
+    match = cv2.matchTemplate(img_grey, templ_grey, cv2.TM_CCOEFF_NORMED)
+    # template centerpoint threshold
+    threshold = np.amax(match)
+    threshold -= TOL
+    # filter points by threshold
+    loc = np.argwhere(match >= threshold)
+    # loc = loc.astype(np.float32, copy=False)
+    # # k means clustering around the locations found above the threshold
+    # loc = kmeans(loc, N_MARKERS)
+    # obtain points in a list of tuples
+    loc = loc.astype(np.int16, copy=False)
+    templ_height, templ_width = templ_grey.shape
+    templ_x_offset = templ_width // 2
+    templ_y_offset = templ_height // 2
+    result = list(zip(loc.T[1] + templ_x_offset, loc.T[0] + templ_y_offset))
+    result = sort_by_return(result)
+    # print(result)
+    # --------------- debug
+
+    # for i in result:
+    #     # draw the center of the circle
+    #     cv2.circle(img, (i[0], i[1]), 2, (0, 0, 255), 3)
+    # cv2.imshow("detected circles", match)
+    # cv2.imshow("detected circles", img)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    # --------------- debug
+
+    return result
 
 
 def draw_box(image, markers, thickness=1):

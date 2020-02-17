@@ -18,8 +18,9 @@ if not os.path.isdir(OUT_DIR):
     os.makedirs(OUT_DIR)
 
 
-def helper_for_part_4_and_5(video_name, fps, frame_ids, output_prefix,
-                            counter_init, is_part5):
+def helper_for_part_4_and_5(
+    video_name, fps, frame_ids, output_prefix, counter_init, is_part5
+):
 
     video = os.path.join(VID_DIR, video_name)
     image_gen = ps3.video_frame_generator(video)
@@ -52,7 +53,7 @@ def helper_for_part_4_and_5(video_name, fps, frame_ids, output_prefix,
             image = ps3.project_imageA_onto_imageB(advert, image, homography)
 
         else:
-            
+
             for marker in markers:
                 mark_location(image, marker)
 
@@ -85,7 +86,7 @@ def mp4_video_writer(filename, frame_size, fps=20):
     Returns:
         VideoWriter: Instance of VideoWriter ready for writing
     """
-    fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+    fourcc = cv2.VideoWriter_fourcc(*"MP4V")
     return cv2.VideoWriter(filename, fourcc, fps, frame_size)
 
 
@@ -104,16 +105,21 @@ def mark_location(image, pt):
     color = (0, 50, 255)
     cv2.circle(image, pt, 3, color, -1)
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cv2.putText(image, "(x:{}, y:{})".format(*pt), (pt[0]+15, pt[1]), font, 0.5, color, 1)
+    cv2.putText(
+        image, "(x:{}, y:{})".format(*pt), (pt[0] + 15, pt[1]), font, 0.5, color, 1
+    )
 
 
 def part_1():
 
     print("\nPart 1:")
 
-    input_images = ['sim_clear_scene.jpg', 'sim_noisy_scene_1.jpg',
-                    'sim_noisy_scene_2.jpg']
-    output_images = ['ps3-1-a-1.png', 'ps3-1-a-2.png', 'ps3-1-a-3.png']
+    input_images = [
+        "sim_clear_scene.jpg",
+        "sim_noisy_scene_1.jpg",
+        "sim_noisy_scene_2.jpg",
+    ]
+    output_images = ["ps3-1-a-1.png", "ps3-1-a-2.png", "ps3-1-a-3.png"]
 
     # Optional template image
     template = cv2.imread(os.path.join(IMG_DIR, "template.jpg"))
@@ -137,10 +143,20 @@ def part_2():
 
     print("\nPart 2:")
 
-    input_images = ['ps3-2-a_base.jpg', 'ps3-2-b_base.jpg',
-                    'ps3-2-c_base.jpg', 'ps3-2-d_base.jpg', 'ps3-2-e_base.jpg']
-    output_images = ['ps3-2-a-1.png', 'ps3-2-a-2.png', 'ps3-2-a-3.png',
-                     'ps3-2-a-4.png', 'ps3-2-a-5.png']
+    input_images = [
+        "ps3-2-a_base.jpg",
+        "ps3-2-b_base.jpg",
+        "ps3-2-c_base.jpg",
+        "ps3-2-d_base.jpg",
+        "ps3-2-e_base.jpg",
+    ]
+    output_images = [
+        "ps3-2-a-1.png",
+        "ps3-2-a-2.png",
+        "ps3-2-a-3.png",
+        "ps3-2-a-4.png",
+        "ps3-2-a-5.png",
+    ]
 
     # Optional template image
     template = cv2.imread(os.path.join(IMG_DIR, "template.jpg"))
@@ -162,8 +178,8 @@ def part_3():
 
     print("\nPart 3:")
 
-    input_images = ['ps3-3-a_base.jpg', 'ps3-3-b_base.jpg', 'ps3-3-c_base.jpg']
-    output_images = ['ps3-3-a-1.png', 'ps3-3-a-2.png', 'ps3-3-a-3.png']
+    input_images = ["ps3-3-a_base.jpg", "ps3-3-b_base.jpg", "ps3-3-c_base.jpg"]
+    output_images = ["ps3-3-a-1.png", "ps3-3-a-2.png", "ps3-3-a-3.png"]
 
     # Advertisement image
     advert = cv2.imread(os.path.join(IMG_DIR, "img-3-a-1.png"))
@@ -182,8 +198,7 @@ def part_3():
 
         homography = ps3.find_four_point_transform(src_points, markers)
 
-        projected_img = ps3.project_imageA_onto_imageB(advert, scene,
-                                                       homography)
+        projected_img = ps3.project_imageA_onto_imageB(advert, scene, homography)
 
         save_image(img_out, projected_img)
 
@@ -268,7 +283,7 @@ def part_6():
     # Todo: Complete this part on your own.
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     print("--- Problem Set 3 ---")
     # Comment out the sections you want to skip
 
