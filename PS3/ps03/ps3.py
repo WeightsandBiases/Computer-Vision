@@ -230,26 +230,42 @@ def project_imageA_onto_imageB(imageA, imageB, homography):
     Returns:
         numpy.array: combined image
     """
-    # create indices of the destination image and linearize them
-    height, width = imageB.shape[:2]
-    idy, idx = np.indices((height, width), dtype=np.float32)
-    lin_homg_pts = np.stack([idx.ravel(), idy.ravel(), np.ones(idy.size)])
-    # print(height, width)
-    # print(lin_homg_id)
-    # warp the coordinates of src to those of dst
-    map_id = homography.dot(lin_homg_pts)
-   
-    map_x, map_y = map_id[:-1]/map_id[-1]  # ensure homogeneity
-    map_x = map_x.reshape(height, width).astype(np.float32)
-    map_y = map_y.reshape(height, width).astype(np.float32)
-    print(map_x)
-    print(map_y)
-    # remap
-    imageA_remapped = cv2.remap(imageA, map_x, map_y, cv2.INTER_NEAREST)
-    # cv2.imshow("image", blended)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    return imageA_remapped
+    # offset due to indexing
+    OFFSET = 1
+    # make copies so we do not distort original
+    dst_height = np.copy(homography)
+    src = np.copy(imageA)
+    dst = np.copy(imageB)
+    # get shape of source and dest images
+    src_height, src_width = src.shape[:2]
+    dst_height, dst_width = dst.shape[:2]
+    # source matrix to store values
+    s_matrix = np.zeros((3, src_height * src_width), np.int32)
+    s_matrix[2, :] = 1
+    for x in range(src_width):
+        s_matrix[0, x * src_height: (x + OFFSET) * src_height] = x
+        s_matrix[1, x * src_height: (x + OFFSET) * src_height] = np.arange(src_height)
+    # computer transform
+    dst_matrix = np.dot(homography, s_matrix)
+    dst_matrix[:, :] = dst_matrix[:, :] / dst_matrix[2, :]
+
+    # extract four corners
+    src_x = np.array(s_matrix[0, :])
+    src_y = np.array(s_matrix[1, :])
+    dst_x = np.array(dst_matrix[0, :])
+    dst_y = np.array(dst_matrix[1, :])
+
+    # clip image
+    dst_x = np.clip(dst_x, 0, dst_width - OFFSET)
+    dst_y = np.clip(dst_y, 0, dst_height - OFFSET)
+
+    # convert to int 32 type
+    dst_x = dst_x.astype(np.int32)
+    dst_y = dst_y.astype(np.int32)
+
+    # put source image into destination using transform
+    dst[dst_y, dst_x, :] = src[src_y, src_x, :]
+    return dst
 
 
 def find_four_point_transform(src_points, dst_points):
@@ -296,7 +312,7 @@ def video_frame_generator(filename):
         None.
     """
     # Todo: Open file with VideoCapture and set result to 'video'. Replace None
-    video = None
+    video = cv2.VideoCapture(filename)
 
     # Do not edit this while loop
     while video.isOpened():
@@ -308,4 +324,5 @@ def video_frame_generator(filename):
             break
 
     # Todo: Close video (release) and yield a 'None' value. (add 2 lines)
-    raise NotImplementedError
+    video.release()
+    yield None
