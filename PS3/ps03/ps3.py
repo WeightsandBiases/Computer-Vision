@@ -3,8 +3,6 @@ CS6476 Problem Set 3 imports. Only Numpy and cv2 are allowed.
 """
 import cv2
 import numpy as np
-
-# from scipy.cluster.vq import kmeans
 import math
 
 
@@ -74,13 +72,13 @@ def find_markers(image, template=None):
             in the order [top-left, bottom-left, top-right, bottom-right].
     """
     # Tolerance for threshold
-    TOL = 0.015
-    # Number of markers
-    # N_MARKERS = 4
-    # store result in a list
-    result = list()
+    TOL = 0.02
+    # number of markers
+    N_MARKERS = 4
+    # -----------------De Noise Image ------------------------------
     # create copies as to not distrub the original images
     img = np.copy(image)
+    templ = np.copy(template)
     # denoising parameters
     # from the openCv docs
     # Parameter regulating filter strength for luminance component.
@@ -103,7 +101,8 @@ def find_markers(image, template=None):
     img = cv2.fastNlMeansDenoisingColored(
         img, None, H, H_COLOR, TEMPLATE_WINDOW_SIZE, SEARCH_WINDOW_SIZE
     )
-    templ = np.copy(template)
+    # -----------------End De Noise Image ------------------------------
+
     # convert to greyscale and floating point representation
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     templ_grey = cv2.cvtColor(templ, cv2.COLOR_BGR2GRAY)
@@ -116,29 +115,71 @@ def find_markers(image, template=None):
     threshold -= TOL
     # filter points by threshold
     loc = np.argwhere(match >= threshold)
-    # loc = loc.astype(np.float32, copy=False)
-    # # k means clustering around the locations found above the threshold
-    # loc = kmeans(loc, N_MARKERS)
     # obtain points in a list of tuples
     loc = loc.astype(np.int16, copy=False)
+    # translate the templated return back to original image
     templ_height, templ_width = templ_grey.shape
     templ_x_offset = templ_width // 2
     templ_y_offset = templ_height // 2
     result = list(zip(loc.T[1] + templ_x_offset, loc.T[0] + templ_y_offset))
-    result = sort_by_return(result)
-    # print(result)
-    # --------------- debug
+    # handle corner cases
+    if len(result) > 2 * N_MARKERS:
+        del result
+        result = list()
+        # deal with edge cases of real image
+        # inverse of the accumulator ratio
+        DP = 1
+        # the minimum distance between the centers of detected circles
+        MIN_DIST = 300
+        # higher threshold for histerisis   (lower = more sensitive)
+        THRESH_HI = 40
+        # the accumulator threshold hold for accumulation to occur
+        # (lower = more sensitive)
+        ACCUM_THRESH = 20
 
-    # for i in result:
-    #     # draw the center of the circle
-    #     cv2.circle(img, (i[0], i[1]), 2, (0, 0, 255), 3)
-    # cv2.imshow("detected circles", match)
-    # cv2.imshow("detected circles", img)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
-    # --------------- debug
+        # set min and max radius, larger than traffic light circles to filter them
+        # out
+        MIN_RADIUS = 30
+        MAX_RADIUS = 42
 
-    return result
+        # convert image to grayscale
+        img_grey = img_grey.astype(np.uint8, copy=False)
+        # use HoughCircles to get the information of detected circles
+        circles = cv2.HoughCircles(
+            img_grey,
+            cv2.HOUGH_GRADIENT,
+            DP,
+            MIN_DIST,
+            param1=THRESH_HI,
+            param2=ACCUM_THRESH,
+            minRadius=MIN_RADIUS,
+            maxRadius=MAX_RADIUS,
+        )
+
+        # --------------- debug
+        # circles = np.uint16(np.around(circles))
+
+        # for i in circles[0, :]:
+        #     # draw the outer circle
+        #     cv2.circle(img_grey, (i[0], i[1]), i[2], (0, 255, 0), 2)
+        #     # draw the center of the circle
+        #     cv2.circle(img_grey, (i[0], i[1]), 2, (0, 0, 255), 3)
+        # cv2.imshow("detected circles", img_grey)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        # --------------- debug
+
+        z_len, x_len, y_len = circles.shape
+        # indicies
+        X_POS_IDX = 0
+        Y_POS_IDX = 1
+        for i in range(x_len):
+            circle_x = circles[0][i][X_POS_IDX]
+            circle_y = circles[0][i][Y_POS_IDX]
+            result.append((int(circle_x), int(circle_y)))
+    # sort the results
+    sorted_result = sort_by_return(result)
+    return sorted_result
 
 
 def draw_box(image, markers, thickness=1):
@@ -156,8 +197,15 @@ def draw_box(image, markers, thickness=1):
     Returns:
         numpy.array: image with lines drawn.
     """
-
-    raise NotImplementedError
+    COLOR = (0, 255, 0)
+    image_out = np.copy(image)
+    tuple(markers)
+    p1, p2, p3, p4 = markers
+    cv2.line(image_out, p1, p2, COLOR, thickness=thickness)
+    cv2.line(image_out, p2, p3, COLOR, thickness=thickness)
+    cv2.line(image_out, p3, p4, COLOR, thickness=thickness)
+    cv2.line(image_out, p4, p1, COLOR, thickness=thickness)
+    return image_out
 
 
 def project_imageA_onto_imageB(imageA, imageB, homography):
