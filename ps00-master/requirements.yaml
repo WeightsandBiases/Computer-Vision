@@ -1,4 +1,4 @@
-name: CS6476
+name: vision
 dependencies:
 - python=3.7
 - matplotlib=3.1.1
