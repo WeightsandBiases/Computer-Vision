@@ -35,8 +35,15 @@ def get_corners_list(image):
         list: List of four (x, y) tuples
             in the order [top-left, bottom-left, top-right, bottom-right].
     """
-
-    raise NotImplementedError
+    height, width = image.shape
+    # 0 indexed
+    y_min = height - 1
+    x_max = width - 1
+    TL = (0, 0)
+    BL = (0, y_min)
+    TR = (x_max, 0)
+    BR = (x_max, y_min)
+    return [TL, BL, TR, BR]
 
 
 def sort_by_return(list_of_tuples):
@@ -223,8 +230,26 @@ def project_imageA_onto_imageB(imageA, imageB, homography):
     Returns:
         numpy.array: combined image
     """
-
-    raise NotImplementedError
+    # create indices of the destination image and linearize them
+    height, width = imageB.shape[:2]
+    idy, idx = np.indices((height, width), dtype=np.float32)
+    lin_homg_pts = np.stack([idx.ravel(), idy.ravel(), np.ones(idy.size)])
+    # print(height, width)
+    # print(lin_homg_id)
+    # warp the coordinates of src to those of dst
+    map_id = homography.dot(lin_homg_pts)
+   
+    map_x, map_y = map_id[:-1]/map_id[-1]  # ensure homogeneity
+    map_x = map_x.reshape(height, width).astype(np.float32)
+    map_y = map_y.reshape(height, width).astype(np.float32)
+    print(map_x)
+    print(map_y)
+    # remap
+    imageA_remapped = cv2.remap(imageA, map_x, map_y, cv2.INTER_NEAREST)
+    # cv2.imshow("image", blended)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    return imageA_remapped
 
 
 def find_four_point_transform(src_points, dst_points):
@@ -246,8 +271,17 @@ def find_four_point_transform(src_points, dst_points):
     Returns:
         numpy.array: 3 by 3 homography matrix of floating point values.
     """
-
-    raise NotImplementedError
+    A = list()
+    for i in range(len(src_points)):
+        x, y = src_points[i]
+        u, v = dst_points[i]
+        A.append([x, y, 1, 0, 0, 0, -u * x, -u * y, -u])
+        A.append([0, 0, 0, x, y, 1, -v * x, -v * y, -v])
+    A = np.asarray(A)
+    U, S, Vh = np.linalg.svd(A)
+    L = Vh[-1, :] / Vh[-1, -1]
+    H = L.reshape(3, 3)
+    return H
 
 
 def video_frame_generator(filename):

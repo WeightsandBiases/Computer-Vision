@@ -254,7 +254,9 @@ class AssignmentTests(unittest.TestCase):
 
         # Test the entire image total value difference
         diff = ssim(ret_image, comparison_image, 1e-3, 1e-3)
-
+        cv2.imshow("detected circles", self.test_grad_image)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
         acceptable_ssim = 0.95
 
         error_msg = "Warp is too far from expected result (diff={})".format(diff)
