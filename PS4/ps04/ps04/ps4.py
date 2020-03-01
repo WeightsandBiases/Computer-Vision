@@ -125,7 +125,6 @@ def optic_flow_lk(img_a, img_b, k_size, k_type, sigma=1):
         kernel = getUniformKernel(k_size)
     elif k_type == 'gaussian':
         kernel = cv2.getGaussianKernel(k_size, sigma, ktype=cv2.CV_64F)
-    
     # compute gradients
     I_t = img_a - img_b
     I_x = gradient_x(img_a)
@@ -154,6 +153,27 @@ def optic_flow_lk(img_a, img_b, k_size, k_type, sigma=1):
     return (U, V)
 
 
+def get_pyramid_kernel(k_type="reduce"):
+    """
+    Creates a kernel used by reduce_image and expand_image for pyramid
+    building.
+
+    Args:
+        type (str): the type kernel used ("reduce" or "expand")
+    """
+    # From Piazza
+    # For reduce image, the kernel is [1, 4, 6, 4, 1] / 16
+    if k_type == "reduce":
+        k_def = np.array([0.0625,  0.25,    0.375,   0.25, 0.0625])
+    # For expand image, the kernel is [1, 4, 6, 4, 1] / 8
+    elif k_type == "expand":
+        k_def = np.array([0.125,  0.5, 0.75,  0.5, 0.125])
+    else:
+        raise KeyError
+    
+    return np.outer(k_def, k_def)
+
+
 def reduce_image(image):
     """Reduces an image to half its shape.
 
@@ -178,8 +198,13 @@ def reduce_image(image):
         numpy.array: output image with half the shape, same type as the
                      input image.
     """
-
-    raise NotImplementedError
+    USE_SRC_DEPTH = -1
+    img = np.copy(image)
+    kernel = get_pyramid_kernel(k_type="reduce")
+    # convolve with filter
+    filtered_image = cv2.filter2D(img, USE_SRC_DEPTH, kernel)
+    # down sample every other pixel
+    return filtered_image[::2, ::2]
 
 
 def gaussian_pyramid(image, levels):
@@ -202,8 +227,16 @@ def gaussian_pyramid(image, levels):
     Returns:
         list: Gaussian pyramid, list of numpy.arrays.
     """
+    pyramid = list()
+    # The first element in the list ([0]) should contain the input image
+    img = np.copy(image)
+    pyramid.append(img)
 
-    raise NotImplementedError
+    # All other levels contain a reduced version of the previous level
+    for i in range(1, levels):
+        img = reduce_image(img)
+        pyramid.append(img)
+    return pyramid
 
 
 def create_combined_img(img_list):
@@ -224,8 +257,18 @@ def create_combined_img(img_list):
         numpy.array: output image with the pyramid images stacked
                      from left to right.
     """
-
-    raise NotImplementedError
+    # get dimensions of the first image
+    combined_img = normalize_and_scale(img_list[0])
+    first_height, first_width = img_list[0].shape[:2]
+    for img in img_list:
+        img_norm = normalize_and_scale(img)
+        img_height, img_width = img.shape[:2]
+        # fill borders
+        if first_height != img_height:
+            border = np.zeros((first_height - img_height, img_width))
+            img_resized = np.vstack((img_norm, border))
+            combined_img = np.hstack((combined_img, img_resized))
+    return combined_img
 
 
 def expand_image(image):

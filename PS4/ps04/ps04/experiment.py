@@ -315,13 +315,13 @@ def part_6():
 
 
 if __name__ == '__main__':
-    part_1a()
-    part_1b()
+    # part_1a()
+    # part_1b()
     part_2()
-    part_3a_1()
-    part_3a_2()
-    part_4a()
-    part_4b()
-    part_5a()
-    part_5b()
-    part_6()
+    # part_3a_1()
+    # part_3a_2()
+    # part_4a()
+    # part_4b()
+    # part_5a()
+    # part_5b()
+    # part_6()
