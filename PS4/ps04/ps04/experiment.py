@@ -20,14 +20,25 @@ def quiver(u, v, scale, stride, color=(0, 255, 0)):
 
         for x in range(0, u.shape[1], stride):
 
-            cv2.line(img_out, (x, y), (x + int(u[y, x] * scale),
-                                       y + int(v[y, x] * scale)), color, 1)
-            cv2.circle(img_out, (x + int(u[y, x] * scale),
-                                 y + int(v[y, x] * scale)), 1, color, 1)
+            cv2.line(
+                img_out,
+                (x, y),
+                (x + int(u[y, x] * scale), y + int(v[y, x] * scale)),
+                color,
+                1,
+            )
+            cv2.circle(
+                img_out,
+                (x + int(u[y, x] * scale), y + int(v[y, x] * scale)),
+                1,
+                color,
+                1,
+            )
     return img_out
 
 
 # Functions you need to complete:
+
 
 def scale_u_and_v(u, v, level, pyr):
     """Scales up U and V arrays to match the image dimensions assigned 
@@ -68,23 +79,32 @@ def scale_u_and_v(u, v, level, pyr):
                              pyr[0].shape
     """
 
-    # TODO: Your code here
-    raise NotImplementedError
+    # expand up the levels of the pyramid also means iterating through
+    # the pyramid in reverse!
+    START_i = level - 1
+    END_i = -1
+    REVERSE = -1  # flag for everse
+    # expand up each level of the pyramid starting with the smallest image
+    for i in range(START_i, END_i, REVERSE):
+        u = ps4.expand_image(u)
+        v = ps4.expand_image(v)
+    return (u, v)
 
 
 def part_1a():
 
-    shift_0 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                      'Shift0.png'), 0) / 255.
-    shift_r2 = cv2.imread(os.path.join(input_dir, 'TestSeq', 
-                                       'ShiftR2.png'), 0) / 255.
-    shift_r5_u5 = cv2.imread(os.path.join(input_dir, 'TestSeq', 
-                                          'ShiftR5U5.png'), 0) / 255.
+    shift_0 = cv2.imread(os.path.join(input_dir, "TestSeq", "Shift0.png"), 0) / 255.0
+    shift_r2 = cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR2.png"), 0) / 255.0
+    shift_r5_u5 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR5U5.png"), 0) / 255.0
+    )
 
     # Optional: smooth the images if LK doesn't work well on raw images
-    k_size = 0  # TODO: Select a kernel size
-    k_type = ""  # TODO: Select a kernel type
-    sigma = 0  # TODO: Select a sigma value if you are using a gaussian kernel
+    k_size = 39  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
     u, v = ps4.optic_flow_lk(shift_0, shift_r2, k_size, k_type, sigma)
 
     # Flow image
@@ -94,9 +114,11 @@ def part_1a():
     # Now let's try with ShiftR5U5. You may want to try smoothing the
     # input images first.
 
-    k_size = 0 # TODO: Select a kernel size
-    k_type = ""  # TODO: Select a kernel type
-    sigma = 0 # TODO: Select a sigma value if you are using a gaussian kernel
+    k_size = 81  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
     u, v = ps4.optic_flow_lk(shift_0, shift_r5_u5, k_size, k_type, sigma)
 
     # Flow image
@@ -125,55 +147,94 @@ def part_1b():
     Returns:
         None
     """
-    shift_0 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                      'Shift0.png'), 0) / 255.
-    shift_r10 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                        'ShiftR10.png'), 0) / 255.
-    shift_r20 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                        'ShiftR20.png'), 0) / 255.
-    shift_r40 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                        'ShiftR40.png'), 0) / 255.
+    shift_0 = cv2.imread(os.path.join(input_dir, "TestSeq", "Shift0.png"), 0) / 255.0
+    shift_r10 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR10.png"), 0) / 255.0
+    )
+    shift_r20 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR20.png"), 0) / 255.0
+    )
+    shift_r40 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR40.png"), 0) / 255.0
+    )
 
-    raise NotImplementedError
+    # compute
+    k_size = 155  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
+    u, v = ps4.optic_flow_lk(shift_0, shift_r10, k_size, k_type, sigma)
+
+    # Flow image
+    u_v = quiver(u, v, scale=3, stride=10)
+    cv2.imwrite(os.path.join(output_dir, "ps4-1-b-1.png"), u_v)
+
+    # compute
+    k_size = 155  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.8 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
+    u, v = ps4.optic_flow_lk(shift_0, shift_r20, k_size, k_type, sigma)
+
+    # Flow image
+    u_v = quiver(u, v, scale=3, stride=10)
+    cv2.imwrite(os.path.join(output_dir, "ps4-1-b-2.png"), u_v)
+
+    # compute
+    k_size = 155  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        1.0 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
+    u, v = ps4.optic_flow_lk(shift_0, shift_r40, k_size, k_type, sigma)
+
+    # Flow image
+    u_v = quiver(u, v, scale=3, stride=10)
+    cv2.imwrite(os.path.join(output_dir, "ps4-1-b-3.png"), u_v)
 
 
 def part_2():
 
-    yos_img_01 = cv2.imread(os.path.join(input_dir, 'DataSeq1',
-                                         'yos_img_01.jpg'), 0) / 255.
+    yos_img_01 = (
+        cv2.imread(os.path.join(input_dir, "DataSeq1", "yos_img_01.jpg"), 0) / 255.0
+    )
 
     # 2a
     levels = 4
     yos_img_01_g_pyr = ps4.gaussian_pyramid(yos_img_01, levels)
     yos_img_01_g_pyr_img = ps4.create_combined_img(yos_img_01_g_pyr)
-    cv2.imwrite(os.path.join(output_dir, "ps4-2-a-1.png"),
-                yos_img_01_g_pyr_img)
+    cv2.imwrite(os.path.join(output_dir, "ps4-2-a-1.png"), yos_img_01_g_pyr_img)
 
     # 2b
     yos_img_01_l_pyr = ps4.laplacian_pyramid(yos_img_01_g_pyr)
 
     yos_img_01_l_pyr_img = ps4.create_combined_img(yos_img_01_l_pyr)
-    cv2.imwrite(os.path.join(output_dir, "ps4-2-b-1.png"),
-                yos_img_01_l_pyr_img)
+    cv2.imwrite(os.path.join(output_dir, "ps4-2-b-1.png"), yos_img_01_l_pyr_img)
 
 
 def part_3a_1():
-    yos_img_01 = cv2.imread(
-        os.path.join(input_dir, 'DataSeq1', 'yos_img_01.jpg'), 0) / 255.
-    yos_img_02 = cv2.imread(
-        os.path.join(input_dir, 'DataSeq1', 'yos_img_02.jpg'), 0) / 255.
+    yos_img_01 = (
+        cv2.imread(os.path.join(input_dir, "DataSeq1", "yos_img_01.jpg"), 0) / 255.0
+    )
+    yos_img_02 = (
+        cv2.imread(os.path.join(input_dir, "DataSeq1", "yos_img_02.jpg"), 0) / 255.0
+    )
 
-    levels = 1  # Define the number of pyramid levels
+    levels = 5  # Define the number of pyramid levels
     yos_img_01_g_pyr = ps4.gaussian_pyramid(yos_img_01, levels)
     yos_img_02_g_pyr = ps4.gaussian_pyramid(yos_img_02, levels)
 
     level_id = 0  # TODO: Select the level number (or id) you wish to use
-    k_size = 0 # TODO: Select a kernel size
-    k_type = ""  # TODO: Select a kernel type
-    sigma = 0  # TODO: Select a sigma value if you are using a gaussian kernel
-    u, v = ps4.optic_flow_lk(yos_img_01_g_pyr[level_id],
-                             yos_img_02_g_pyr[level_id],
-                             k_size, k_type, sigma)
+    k_size = 55  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
+    u, v = ps4.optic_flow_lk(
+        yos_img_01_g_pyr[level_id], yos_img_02_g_pyr[level_id], k_size, k_type, sigma
+    )
 
     u, v = scale_u_and_v(u, v, level_id, yos_img_02_g_pyr)
 
@@ -182,27 +243,33 @@ def part_3a_1():
     yos_img_02_warped = ps4.warp(yos_img_02, u, v, interpolation, border_mode)
 
     diff_yos_img_01_02 = yos_img_01 - yos_img_02_warped
-    cv2.imwrite(os.path.join(output_dir, "ps4-3-a-1.png"),
-                ps4.normalize_and_scale(diff_yos_img))
+    cv2.imwrite(
+        os.path.join(output_dir, "ps4-3-a-1.png"),
+        ps4.normalize_and_scale(diff_yos_img_01_02),
+    )
 
 
 def part_3a_2():
-    yos_img_02 = cv2.imread(
-        os.path.join(input_dir, 'DataSeq1', 'yos_img_02.jpg'), 0) / 255.
-    yos_img_03 = cv2.imread(
-        os.path.join(input_dir, 'DataSeq1', 'yos_img_03.jpg'), 0) / 255.
+    yos_img_02 = (
+        cv2.imread(os.path.join(input_dir, "DataSeq1", "yos_img_02.jpg"), 0) / 255.0
+    )
+    yos_img_03 = (
+        cv2.imread(os.path.join(input_dir, "DataSeq1", "yos_img_03.jpg"), 0) / 255.0
+    )
 
-    levels = 1  # Define the number of pyramid levels
+    levels = 5  # Define the number of pyramid levels
     yos_img_02_g_pyr = ps4.gaussian_pyramid(yos_img_02, levels)
     yos_img_03_g_pyr = ps4.gaussian_pyramid(yos_img_03, levels)
 
-    level_id = 1 # TODO: Select the level number (or id) you wish to use
-    k_size = 0 # TODO: Select a kernel size
-    k_type = ""  # TODO: Select a kernel type
-    sigma = 0 # TODO: Select a sigma value if you are using a gaussian kernel
-    u, v = ps4.optic_flow_lk(yos_img_02_g_pyr[level_id],
-                             yos_img_03_g_pyr[level_id],
-                             k_size, k_type, sigma)
+    level_id = 1  # TODO: Select the level number (or id) you wish to use
+    k_size = 95  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
+    u, v = ps4.optic_flow_lk(
+        yos_img_02_g_pyr[level_id], yos_img_03_g_pyr[level_id], k_size, k_type, sigma
+    )
 
     u, v = scale_u_and_v(u, v, level_id, yos_img_03_g_pyr)
 
@@ -211,96 +278,191 @@ def part_3a_2():
     yos_img_03_warped = ps4.warp(yos_img_03, u, v, interpolation, border_mode)
 
     diff_yos_img = yos_img_02 - yos_img_03_warped
-    cv2.imwrite(os.path.join(output_dir, "ps4-3-a-2.png"),
-                ps4.normalize_and_scale(diff_yos_img))
+    cv2.imwrite(
+        os.path.join(output_dir, "ps4-3-a-2.png"), ps4.normalize_and_scale(diff_yos_img)
+    )
 
 
 def part_4a():
-    shift_0 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                      'Shift0.png'), 0) / 255.
-    shift_r10 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                        'ShiftR10.png'), 0) / 255.
-    shift_r20 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                        'ShiftR20.png'), 0) / 255.
-    shift_r40 = cv2.imread(os.path.join(input_dir, 'TestSeq',
-                                        'ShiftR40.png'), 0) / 255.
+    shift_0 = cv2.imread(os.path.join(input_dir, "TestSeq", "Shift0.png"), 0) / 255.0
+    shift_r10 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR10.png"), 0) / 255.0
+    )
+    shift_r20 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR20.png"), 0) / 255.0
+    )
+    shift_r40 = (
+        cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR40.png"), 0) / 255.0
+    )
 
-    levels = 1  # TODO: Define the number of levels
-    k_size = 0  # TODO: Select a kernel size
-    k_type = ""  # TODO: Select a kernel type
-    sigma = 0  # TODO: Select a sigma value if you are using a gaussian kernel
+    levels = 5  # TODO: Define the number of levels
+    k_size = 15  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
     interpolation = cv2.INTER_CUBIC  # You may try different values
     border_mode = cv2.BORDER_REFLECT101  # You may try different values
 
-    u10, v10 = ps4.hierarchical_lk(shift_0, shift_r10, levels, k_size, k_type,
-                                   sigma, interpolation, border_mode)
+    u10, v10 = ps4.hierarchical_lk(
+        shift_0, shift_r10, levels, k_size, k_type, sigma, interpolation, border_mode
+    )
 
     u_v = quiver(u10, v10, scale=3, stride=10)
     cv2.imwrite(os.path.join(output_dir, "ps4-4-a-1.png"), u_v)
 
     # You may want to try different parameters for the remaining function
     # calls.
-    u20, v20 = ps4.hierarchical_lk(shift_0, shift_r20, levels, k_size, k_type,
-                                   sigma, interpolation, border_mode)
+    u20, v20 = ps4.hierarchical_lk(
+        shift_0, shift_r20, levels, k_size, k_type, sigma, interpolation, border_mode
+    )
 
     u_v = quiver(u20, v20, scale=3, stride=10)
     cv2.imwrite(os.path.join(output_dir, "ps4-4-a-2.png"), u_v)
 
-    u40, v40 = ps4.hierarchical_lk(shift_0, shift_r40, levels, k_size, k_type,
-                                   sigma, interpolation, border_mode)
+    u40, v40 = ps4.hierarchical_lk(
+        shift_0, shift_r40, levels, k_size, k_type, sigma, interpolation, border_mode
+    )
     u_v = quiver(u40, v40, scale=3, stride=10)
     cv2.imwrite(os.path.join(output_dir, "ps4-4-a-3.png"), u_v)
 
 
 def part_4b():
-    urban_img_01 = cv2.imread(
-        os.path.join(input_dir, 'Urban2', 'urban01.png'), 0) / 255.
-    urban_img_02 = cv2.imread(
-        os.path.join(input_dir, 'Urban2', 'urban02.png'), 0) / 255.
+    urban_img_01 = (
+        cv2.imread(os.path.join(input_dir, "Urban2", "urban01.png"), 0) / 255.0
+    )
+    urban_img_02 = (
+        cv2.imread(os.path.join(input_dir, "Urban2", "urban02.png"), 0) / 255.0
+    )
 
-    levels = 1  # TODO: Define the number of levels
-    k_size = 0  # TODO: Select a kernel size
-    k_type = ""  # TODO: Select a kernel type
-    sigma = 0  # TODO: Select a sigma value if you are using a gaussian kernel
+    levels = 6  # TODO: Define the number of levels
+    k_size = 15  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
     interpolation = cv2.INTER_CUBIC  # You may try different values
     border_mode = cv2.BORDER_REFLECT101  # You may try different values
 
-    u, v = ps4.hierarchical_lk(urban_img_01, urban_img_02, levels, k_size,
-                               k_type, sigma, interpolation, border_mode)
+    u, v = ps4.hierarchical_lk(
+        urban_img_01,
+        urban_img_02,
+        levels,
+        k_size,
+        k_type,
+        sigma,
+        interpolation,
+        border_mode,
+    )
 
     u_v = quiver(u, v, scale=3, stride=10)
     cv2.imwrite(os.path.join(output_dir, "ps4-4-b-1.png"), u_v)
 
     interpolation = cv2.INTER_CUBIC  # You may try different values
     border_mode = cv2.BORDER_REFLECT101  # You may try different values
-    urban_img_02_warped = ps4.warp(urban_img_02, u, v, interpolation,
-                                   border_mode)
+    urban_img_02_warped = ps4.warp(urban_img_02, u, v, interpolation, border_mode)
 
     diff_img = urban_img_01 - urban_img_02_warped
-    cv2.imwrite(os.path.join(output_dir, "ps4-4-b-2.png"),
-                ps4.normalize_and_scale(diff_img))
+    cv2.imwrite(
+        os.path.join(output_dir, "ps4-4-b-2.png"), ps4.normalize_and_scale(diff_img)
+    )
 
 
-def part_5a():
+def part_5a(src_0=np.array([]), src_1=np.array([]), dst_name=None):
     """Frame interpolation
 
-    Follow the instructions in the problem set instructions.
-
-    Place all your work in this file and this section.
+    Now you will insert 4 new images uniformly distributed in between
+    I 0 and I 1 . This means your resulting sequence of images are:
+    I 0 , I 0.2 , I 0.4 , I 0.6 , I 0.8 , I 1.
+    Verify your results creating a GIF from these six images.
+    Create an image that contains all the images in the sequence.
+    Organize them in 2 rows and 3 columns.
+    The first row will show I 0 , I 0.2 , I 0.4 and the second one
+    I 0.6 , I 0.8 , I 1 .
+    - Input: Shift0.png (I 0 ) and ShiftR10.png (I 1 ). Output: ps4-5-a-1.png
+    Args:
+        src_0 (numpy.array): image at 0th position
+        src_1 (numpy.array): image at delta position
     """
+    if not src_0.any() or not src_1.any():
+        src_0 = cv2.imread(os.path.join(input_dir, "TestSeq", "Shift0.png"), 0) / 255.0
+        src_1 = (
+            cv2.imread(os.path.join(input_dir, "TestSeq", "ShiftR10.png"), 0) / 255.0
+        )
 
-    raise NotImplementedError
+    levels = 5  # TODO: Define the number of levels
+    k_size = 15  # TODO: Select a kernel size
+    k_type = "gaussian"  # TODO: Select a kernel type
+    sigma = (
+        0.3 * ((k_size - 1) * 0.5 - 1) + 0.8
+    )  # TODO: Select a sigma value if you are using a gaussian kernel
+    interpolation = cv2.INTER_CUBIC  # You may try different values
+    border_mode = cv2.BORDER_REFLECT101  # You may try different values
+
+    u, v = ps4.hierarchical_lk(
+        src_0, src_1, levels, k_size, k_type, sigma, interpolation, border_mode
+    )
+
+    # create sequence of images
+    START_i = 0
+    STOP_i = 12
+    STEP_i = 2
+    keys = list()
+    imgs = list()
+    for i in np.arange(START_i, STOP_i, STEP_i):
+        keys.append("I_{}".format(i))
+        if i == START_i:
+            imgs.append(src_0)
+        elif i == 10:
+            imgs.append(src_1)
+        else:
+            imgs.append(
+                ps4.warp(src_0, -i * 0.1 * u, -i * 0.1 * v, interpolation, border_mode)
+            )
+    img_seq = dict(zip(keys, imgs))
+    # organize the sequence in 2 rows and 3 columns
+    # The first row will show I 0 , I 0.2 , I 0.4 and the second one
+    # I 0.6 , I 0.8 , I 1 .
+    ROWS = 2
+    COLS = 3
+    height, width = src_0.shape[:2]
+    frame_interp = np.zeros((ROWS * height, COLS * width))
+    # image index
+    k = 0
+    for r in range(ROWS):
+        for c in range(COLS):
+            img = img_seq["I_{}".format(k)]
+            frame_interp[
+                r * height : (r + 1) * height, c * width : (c + 1) * width
+            ] = img
+            k += 2
+    if not dst_name:
+        cv2.imwrite(
+            os.path.join(output_dir, "ps4-5-a-1.png"),
+            ps4.normalize_and_scale(frame_interp),
+        )
+    else:
+        cv2.imwrite(
+            os.path.join(output_dir, dst_name), ps4.normalize_and_scale(frame_interp)
+        )
 
 
 def part_5b():
     """Frame interpolation
 
-    Follow the instructions in the problem set instructions.
-
-    Place all your work in this file and this section.
+    Do the same thing as part_5a but using
+    - Input: mc01.png (I 0 ) and mc02.png (I 1 ). Output: ps4-5-b-1.png
+    - Input: mc02.png (I 1 ) and mc03.png (I 2 ). Output: ps4-5-b-2.png
     """
+    src_0 = cv2.imread(os.path.join(input_dir, "MiniCooper", "mc01.png"), 0) / 255.0
+    src_1 = cv2.imread(os.path.join(input_dir, "MiniCooper", "mc02.png"), 0) / 255.0
+    src_2 = cv2.imread(os.path.join(input_dir, "MiniCooper", "mc03.png"), 0) / 255.0
 
-    raise NotImplementedError
+    dst_name_1 = "ps4-5-b-1.png"
+    dst_name_2 = "ps4-5-b-2.png"
+
+    part_5a(src_0=src_0, src_1=src_1, dst_name=dst_name_1)
+    part_5a(src_0=src_1, src_1=src_2, dst_name=dst_name_2)
 
 
 def part_6():
@@ -314,14 +476,14 @@ def part_6():
     raise NotImplementedError
 
 
-if __name__ == '__main__':
-    # part_1a()
-    # part_1b()
+if __name__ == "__main__":
+    part_1a()
+    part_1b()
     part_2()
-    # part_3a_1()
-    # part_3a_2()
-    # part_4a()
-    # part_4b()
-    # part_5a()
-    # part_5b()
+    part_3a_1()
+    part_3a_2()
+    part_4a()
+    part_4b()
+    part_5a()
+    part_5b()
     # part_6()

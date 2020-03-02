@@ -17,8 +17,13 @@ def normalize_and_scale(image_in, scale_range=(0, 255)):
         numpy.array: output image.
     """
     image_out = np.zeros(image_in.shape)
-    cv2.normalize(image_in, image_out, alpha=scale_range[0],
-                  beta=scale_range[1], norm_type=cv2.NORM_MINMAX)
+    cv2.normalize(
+        image_in,
+        image_out,
+        alpha=scale_range[0],
+        beta=scale_range[1],
+        norm_type=cv2.NORM_MINMAX,
+    )
 
     return image_out
 
@@ -121,9 +126,9 @@ def optic_flow_lk(img_a, img_b, k_size, k_type, sigma=1):
     # copy and convert images to to 64 bit float
     img_a = np.copy(img_a).astype(np.float64)
     img_b = np.copy(img_b).astype(np.float64)
-    if k_type == 'uniform':
+    if k_type == "uniform":
         kernel = getUniformKernel(k_size)
-    elif k_type == 'gaussian':
+    elif k_type == "gaussian":
         kernel = cv2.getGaussianKernel(k_size, sigma, ktype=cv2.CV_64F)
     # compute gradients
     I_t = img_a - img_b
@@ -164,13 +169,13 @@ def get_pyramid_kernel(k_type="reduce"):
     # From Piazza
     # For reduce image, the kernel is [1, 4, 6, 4, 1] / 16
     if k_type == "reduce":
-        k_def = np.array([0.0625,  0.25,    0.375,   0.25, 0.0625])
+        k_def = np.array([0.0625, 0.25, 0.375, 0.25, 0.0625])
     # For expand image, the kernel is [1, 4, 6, 4, 1] / 8
     elif k_type == "expand":
-        k_def = np.array([0.125,  0.5, 0.75,  0.5, 0.125])
+        k_def = np.array([0.125, 0.5, 0.75, 0.5, 0.125])
     else:
         raise KeyError
-    
+
     return np.outer(k_def, k_def)
 
 
@@ -227,16 +232,16 @@ def gaussian_pyramid(image, levels):
     Returns:
         list: Gaussian pyramid, list of numpy.arrays.
     """
-    pyramid = list()
+    g_pyr = list()
     # The first element in the list ([0]) should contain the input image
     img = np.copy(image)
-    pyramid.append(img)
+    g_pyr.append(img)
 
     # All other levels contain a reduced version of the previous level
     for i in range(1, levels):
         img = reduce_image(img)
-        pyramid.append(img)
-    return pyramid
+        g_pyr.append(img)
+    return g_pyr
 
 
 def create_combined_img(img_list):
@@ -291,8 +296,46 @@ def expand_image(image):
         numpy.array: same type as 'image' with the doubled height and
                      width.
     """
+    USE_SRC_DEPTH = -1
+    kernel = get_pyramid_kernel(k_type="expand")
+    # get image dimensions
+    image_height, image_width = image.shape[:2]
+    # double original width and height
+    dst_height = image_height * 2
+    dst_width = image_width * 2
+    # create a blank template for image to expand to
+    blank = np.zeros((dst_height, dst_width))
+    # fill blank with every other pixel of image
+    blank[::2, ::2] = image[:, :]
+    # convolve
+    dst = cv2.filter2D(blank, USE_SRC_DEPTH, kernel)
+    return dst
 
-    raise NotImplementedError
+
+def img_resize(
+    src,
+    dst_height,
+    dst_width,
+    interpolation=cv2.INTER_CUBIC,
+    border_mode=cv2.BORDER_REFLECT101,
+):
+    """
+    resizes an image using cv.remap
+    Args:
+        src (numpy.array): original image
+
+    Returns:
+        (numpy.array): resized image
+    """
+
+    # note: careful when specifying width and height
+    mesh = np.meshgrid(range(dst_width), range(dst_height))
+    map_x, map_y = mesh
+    map_x = map_x.astype(np.float32)
+    map_y = map_y.astype(np.float32)
+    return cv2.remap(
+        src, map_x, map_y, interpolation=interpolation, borderMode=border_mode
+    )
 
 
 def laplacian_pyramid(g_pyr):
@@ -306,8 +349,25 @@ def laplacian_pyramid(g_pyr):
     Returns:
         list: Laplacian pyramid, with l_pyr[-1] = g_pyr[-1].
     """
-
-    raise NotImplementedError
+    l_pyr = list()
+    # iterate from the largest to smallest image in the pyramid
+    for i in range(len(g_pyr) - 1):
+        # get the current and next level image
+        g_pyr_img_cur = g_pyr[i]
+        g_pyr_img_nxt = g_pyr[i + 1]
+        # expand the next level image
+        img_exp = expand_image(g_pyr_img_nxt)
+        # corner case artifact when original image being reduced is of
+        # odd dimensions and we need to correct for that in expand
+        if g_pyr_img_cur.shape != img_exp.shape:
+            dst_h, dst_w = g_pyr_img_cur.shape[:2]
+            img_exp = img_resize(img_exp, dst_h, dst_w)
+        # result is the difference between the current image
+        # and the next level expanded image
+        l_pyr.append(g_pyr_img_cur - img_exp)
+    # l_pyr[-1] = g_pyr[-1]
+    l_pyr.append(g_pyr[-1])
+    return l_pyr
 
 
 def warp(image, U, V, interpolation, border_mode):
@@ -333,12 +393,23 @@ def warp(image, U, V, interpolation, border_mode):
         numpy.array: warped image, such that
                      warped[y, x] = image[y + V[y, x], x + U[y, x]]
     """
+    img = np.copy(image)
+    image_height, image_width = image.shape[:2]
+    # note: careful when specifying width and height
+    mesh = np.meshgrid(range(image_width), range(image_height))
+    # offset with movement in mind
+    # also remap takes 32 bit float
+    mesh_x, mesh_y = mesh
+    map_x = (mesh_x + U).astype(np.float32)
+    map_y = (mesh_y + V).astype(np.float32)
+    return cv2.remap(
+        img, map_x, map_y, interpolation=interpolation, borderMode=border_mode
+    )
 
-    raise NotImplementedError
 
-
-def hierarchical_lk(img_a, img_b, levels, k_size, k_type, sigma, interpolation,
-                    border_mode):
+def hierarchical_lk(
+    img_a, img_b, levels, k_size, k_type, sigma, interpolation, border_mode
+):
     """Computes the optic flow using Hierarchical Lucas-Kanade.
 
     This method should use reduce_image(), expand_image(), warp(),
@@ -365,4 +436,34 @@ def hierarchical_lk(img_a, img_b, levels, k_size, k_type, sigma, interpolation,
                              same size and type as U.
     """
 
-    raise NotImplementedError
+    g_pym_a = gaussian_pyramid(img_a, levels)
+    g_pym_b = gaussian_pyramid(img_b, levels)
+
+    # start and stop indicies
+
+    START_i = len(g_pym_a) - 1  # - 1 due to 0 index
+    STOP_i = -1  # stop iteration at 0
+    REVERSE = -1  # reverse flag for range
+
+    # start with the smallest image first (reverse order iteration)
+    for i in range(START_i, STOP_i, REVERSE):
+        # get image from gaussian pyramid
+        g_img_a = g_pym_a[i]
+        g_img_b = g_pym_b[i]
+        # initialize U and V as 0s
+        if i == START_i:
+            img_height, img_width = g_img_a.shape[:2]
+            U = np.zeros((img_height, img_width))
+            V = np.zeros((img_height, img_width))
+        else:
+            # expand U and V for all subsequent steps
+            U = 2 * expand_image(U)
+            V = 2 * expand_image(V)
+        # Warps image using X and Y displacements (U and V)
+        g_img_b = warp(g_img_b, U, V, interpolation, border_mode)
+        # compute displacement
+        d_u, d_v = optic_flow_lk(g_img_a, g_img_b, k_size, k_type, sigma=sigma)
+        U += d_u
+        V += d_v
+
+    return (U, V)
