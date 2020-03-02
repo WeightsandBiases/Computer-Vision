@@ -1,2 +1,10 @@
-I think \\
-my answer is ... \\
+Lucas Kanade does not work very well for large image shifts, especially on ShiftR40.png. \\
+This is because of the underlying assumption that shifts are small, and U and V are set \\
+equal from one image to the next.\\
+
+The results were better when larger gaussian kernels are used to blur the image.\\
+This makes sense as larger gaussian kernels can make the images appear similar.\\
+This is precisely why, when building image LK pyramids later in the assignment, \\
+images are smoothed first prior to downsampling.\\
+I scaled the gaussian kernel's sigma values using OpenCV's default scaling equations\\
+sigma = 0.3 * ((k_size - 1) * 0.5 - 1) + 0.8\\
