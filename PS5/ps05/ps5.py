@@ -18,21 +18,63 @@ class KalmanFilter(object):
             Q (numpy.array): Process noise array.
             R (numpy.array): Measurement noise array.
         """
-        self.state = np.array([init_x, init_y, 0., 0.])  # state
-        raise NotImplementedError
+        # i. State vector (X) with the initial x and y values.
+        self.state = np.array([[init_x, init_y, 0.0, 0.0]]).T
+        # ii. Covariance 4x4 array (Σ ) initialized with a diagonal
+        # matrix with some value.
+        P_uncert_pos = 0.1
+        P_uncert_vel = 0.1
+        self.P = np.diag([P_uncert_pos, P_uncert_pos, P_uncert_vel, P_uncert_vel])
+
+        # iii. 4x4 state transition matrix D_t
+        # change in time
+        dt = 1.0
+        self.F = np.array(
+            [
+                [1.0, 0.0, dt, 0.0],
+                [0.0, 1.0, 0.0, dt],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 1.0],
+            ]
+        )
+        # iv. 2x4 measurement matrix M_t
+        self.H = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0]])
+        # v. 4x4 process noise matrix Σd_t
+        self.Q = Q
+        # vi. 2x2 measurement noise matrix Σm_t
+        self.R = R
+        # 4x4 identity matrix
+        self.I = np.identity(4)
 
     def predict(self):
-        raise NotImplementedError
+        # @ operator is for matrix multiplication
+        # https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html
+        # state prediction
+        self.state = self.F @ self.state
+        # covariance prediction
+        self.P = self.F @ self.P @ self.F.T + self.Q
 
     def correct(self, meas_x, meas_y):
-        raise NotImplementedError
+        # @ operator is for matrix multiplication
+        # https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html
+        # map measurements
+        Z = np.array([[meas_x, meas_y]]).T
+        # compute error
+        Y = Z - self.H @ self.state
+        # compute system uncertainty
+        S = (self.H @ self.P @ self.H.T) + self.R
+        # compute Kalmann gain
+        K = self.P @ self.H.T @ np.linalg.inv(S)
+        # state update
+        self.state += K @ Y
+        
+        # uncertainty covariance update
+        self.P = (self.I - (K @ self.H)) @ self.P
 
     def process(self, measurement_x, measurement_y):
-
         self.predict()
         self.correct(measurement_x, measurement_y)
-
-        return self.state[0], self.state[1]
+        return self.state[0, 0], self.state[1, 0]
 
 
 class ParticleFilter(object):
@@ -77,10 +119,10 @@ class ParticleFilter(object):
                     - template_rect (dict): Template coordinates with x, y,
                                             width, and height values.
         """
-        self.num_particles = kwargs.get('num_particles')  # required by the autograder
-        self.sigma_exp = kwargs.get('sigma_exp')  # required by the autograder
-        self.sigma_dyn = kwargs.get('sigma_dyn')  # required by the autograder
-        self.template_rect = kwargs.get('template_coords')  # required by the autograder
+        self.num_particles = kwargs.get("num_particles")  # required by the autograder
+        self.sigma_exp = kwargs.get("sigma_exp")  # required by the autograder
+        self.sigma_dyn = kwargs.get("sigma_dyn")  # required by the autograder
+        self.template_rect = kwargs.get("template_coords")  # required by the autograder
         # If you want to add more parameters, make sure you set a default value so that
         # your test doesn't fail the autograder because of an unknown or None value.
         #
@@ -213,9 +255,11 @@ class AppearanceModelPF(ParticleFilter):
         have to declare them again.
         """
 
-        super(AppearanceModelPF, self).__init__(frame, template, **kwargs)  # call base class constructor
+        super(AppearanceModelPF, self).__init__(
+            frame, template, **kwargs
+        )  # call base class constructor
 
-        self.alpha = kwargs.get('alpha')  # required by the autograder
+        self.alpha = kwargs.get("alpha")  # required by the autograder
         # If you want to add more parameters, make sure you set a default value so that
         # your test doesn't fail the autograder because of an unknown or None value.
         #
@@ -249,7 +293,9 @@ class MDParticleFilter(AppearanceModelPF):
         will be inherited so you don't have to declare them again.
         """
 
-        super(MDParticleFilter, self).__init__(frame, template, **kwargs)  # call base class constructor
+        super(MDParticleFilter, self).__init__(
+            frame, template, **kwargs
+        )  # call base class constructor
         # If you want to add more parameters, make sure you set a default value so that
         # your test doesn't fail the autograder because of an unknown or None value.
         #
