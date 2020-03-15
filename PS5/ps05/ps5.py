@@ -47,7 +47,7 @@ class KalmanFilter(object):
         self.I = np.identity(4)
 
     def predict(self):
-        # @ operator is for matrix multiplication
+        # @ operator is for matrix dot multiplication
         # https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html
         # state prediction
         self.state = self.F @ self.state
@@ -55,7 +55,7 @@ class KalmanFilter(object):
         self.P = self.F @ self.P @ self.F.T + self.Q
 
     def correct(self, meas_x, meas_y):
-        # @ operator is for matrix multiplication
+        # @ operator is for matrix dot multiplication
         # https://docs.scipy.org/doc/numpy/user/numpy-for-matlab-users.html
         # map measurements
         Z = np.array([[meas_x, meas_y]]).T
@@ -67,7 +67,7 @@ class KalmanFilter(object):
         K = self.P @ self.H.T @ np.linalg.inv(S)
         # state update
         self.state += K @ Y
-        
+
         # uncertainty covariance update
         self.P = (self.I - (K @ self.H)) @ self.P
 
@@ -130,12 +130,42 @@ class ParticleFilter(object):
         # self.some_parameter_name = kwargs.get('parameter_name', default_value)
 
         self.template = template
+        self.template_h, self.template_w = template.shape[:2]
         self.frame = frame
-        self.particles = None  # Initialize your particles array. Read the docstring.
-        self.weights = None  # Initialize your weights array. Read the docstring.
-        # Initialize any other components you may need when designing your filter.
+        self.frame_h, self.frame_w = frame.shape[:2]
+        self.particles = self.init_particles(
+            self.frame_h, self.frame_w, self.num_particles
+        )
+        # initialize weights with uniform weights
+        self.weights = self.init_p_weights(self.num_particles)
 
-        raise NotImplementedError
+    def init_particles(self, height, width, num_particles):
+        """
+        initializes particles with random values of height and width
+        Args: 
+            height (int): height of the image particle
+            width (int): width of the image particle
+        Returns (np.array(numpy.array)): a numpy array containing length 2 
+                                         numpy array containing 
+                                         random height and width values
+        """
+        particles = list()
+        for i in range(num_particles):
+            rnd_height = np.random.choice(height)
+            rnd_width = np.random.choice(width)
+            # append a length 2 numpy array containing
+            # a random height and a random width
+            particles.append(np.array([rnd_height, rnd_width]))
+        return np.array(particles)
+
+    def init_p_weights(self, num_particles):
+        """
+        initializes the particle weights to be uniform
+        Args: 
+            num_particles(int): number of particles
+        Returns (np.array): numpy array containing weights
+        """
+        return np.ones(self.num_particles) / self.num_particles
 
     def get_particles(self):
         """Returns the current particles state.
@@ -159,11 +189,33 @@ class ParticleFilter(object):
 
     def get_error_metric(self, template, frame_cutout):
         """Returns the error metric used based on the similarity measure.
-
+           which is calculated using exp(-MSE/(2*sigma_mse**2))
         Returns:
             float: similarity value.
         """
-        return NotImplementedError
+        mse = np.sum(template.astype(np.float) - frame_cutout.astype(np.float)) / (
+            self.frame_h * self.frame_w
+        )
+        return np.exp(-mse / (2 * self.sigma_exp ** 2))
+
+    def get_patch_coord(self, particle):
+        """
+        Args: 
+            particle (np.array): particle to be checked
+        Returns(dict): a dictionary of patch if particle is within bounds
+                       None otherwise
+        """
+        y, x = particle
+        # y coordinates are reversed because of how rows are represented
+        y_min = int(y - self.template_h / 2)
+        y_max = int(y + self.template_h / 2)
+        x_min = int(x - self.template_w / 2)
+        x_max = int(x + self.template_w / 2)
+        if y_min > 0 and y_max < self.frame_h and x_min > 0 and x_max < self.frame_w:
+            return {"y_max": y_max, "y_min": y_min, "x_min": x_min, "x_max": x_max}
+        else:
+            return None
+
 
     def resample_particles(self):
         """Returns a new set of particles
@@ -178,7 +230,42 @@ class ParticleFilter(object):
         Returns:
             numpy.array: particles data structure.
         """
-        return NotImplementedError
+        rsmp_particles = list()
+        # resample with replacement from particles using np.random.choice
+        # resamp_indicies, a np.array containing random indicies in
+        # num particlces
+        rsmp_indicies = np.random.choice(
+            self.num_particles, size=self.num_particles, replace=True, p=self.weights
+        )
+
+        # continue resampling until number of particles is met
+        while len(rsmp_particles) < self.num_particles:
+            r_idx = int(np.random.randint(self.num_particles))
+            p_idx = rsmp_indicies[r_idx]
+            rsmp = self.particles[p_idx]
+            # check bounds
+            if self.get_patch_coord(rsmp):
+                rsmp_particles.append(rsmp)
+
+        return np.array(rsmp_particles)
+
+    def get_patch(self, particle):
+        """
+        returns the image patch of the particle
+        Args: 
+            particle (np.array): particle
+        Returns (np.array): the image patch cooresponding to particle
+        """
+        patch_xy = self.get_patch_coord(particle)
+        if patch_xy:
+            y_max = patch_xy["y_max"]
+            y_min = patch_xy["y_min"]
+            x_max = patch_xy["x_max"]
+            x_min = patch_xy["x_min"]
+            print(patch_xy)
+            return self.frame[y_min:y_max, x_min:x_max]
+        else:
+            return None
 
     def process(self, frame):
         """Processes a video frame (image) and updates the filter's state.
@@ -198,7 +285,22 @@ class ParticleFilter(object):
         Returns:
             None.
         """
-        raise NotImplementedError
+        # resample particles
+        self.particles = self.resample_particles()
+
+        # calculate weights
+        for i, particle in enumerate(self.particles):
+            patch = self.get_patch(particle)
+            err = self.get_error_metric(self.template, patch)
+            self.weights[i] += err
+
+        # normalize weights
+        self.weights /= np.sum(self.weights)
+        # update dynamics using random gaussian
+        self.particles += np.random.normal(
+            0, self.sigma_dyn, self.particles.shape
+        ).astype(np.int)
+        
 
     def render(self, frame_in):
         """Visualizes current particle filter state.

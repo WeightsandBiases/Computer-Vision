@@ -189,12 +189,12 @@ def find_markers(image, template=None):
         else:
             print("!!! Marker not detected !!!")
     # sort the results
-    sorted_result = [(0,0),(0,100),(100,0),(100,100)]
+    sorted_result = [(0, 0), (0, 100), (100, 0), (100, 100)]
 
     if result:
         sorted_result = sort_by_return(result)
     return sorted_result
- 
+
 
 def draw_box(image, markers, thickness=1):
     """Draws lines connecting box markers.
@@ -250,8 +250,8 @@ def project_imageA_onto_imageB(imageA, imageB, homography):
     s_matrix = np.zeros((3, src_height * src_width), np.int32)
     s_matrix[2, :] = 1
     for i in range(src_width):
-        s_matrix[0, i * src_height: (i + OFFSET) * src_height] = i
-        s_matrix[1, i * src_height: (i + OFFSET) * src_height] = np.arange(src_height)
+        s_matrix[0, i * src_height : (i + OFFSET) * src_height] = i
+        s_matrix[1, i * src_height : (i + OFFSET) * src_height] = np.arange(src_height)
     # computer transform
     dst_matrix = np.dot(homography, s_matrix)
     dst_matrix[:, :] = dst_matrix[:, :] / dst_matrix[2, :]
