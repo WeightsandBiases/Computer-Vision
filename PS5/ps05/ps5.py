@@ -3,6 +3,7 @@ CS6476 Problem Set 5 imports. Only Numpy and cv2 are allowed.
 """
 import numpy as np
 import cv2
+import time
 
 
 # Assignment code
@@ -128,16 +129,22 @@ class ParticleFilter(object):
         #
         # The way to do it is:
         # self.some_parameter_name = kwargs.get('parameter_name', default_value)
-
-        self.template = template
+        self.template = self.get_gray_scale(template)
         self.template_h, self.template_w = template.shape[:2]
-        self.frame = frame
+        self.frame = self.get_gray_scale(frame)
         self.frame_h, self.frame_w = frame.shape[:2]
         self.particles = self.init_particles(
             self.frame_h, self.frame_w, self.num_particles
         )
         # initialize weights with uniform weights
         self.weights = self.init_p_weights(self.num_particles)
+
+    def get_gray_scale(self, frame):
+        img_temp_R = frame[:, :, 0]
+        img_temp_G = frame[:, :, 1]
+        img_temp_B = frame[:, :, 2]
+        img_temp = img_temp_R * 0.48 + img_temp_G * 0.40 + img_temp_B * 0.12
+        return img_temp
 
     def init_particles(self, height, width, num_particles):
         """
@@ -155,7 +162,7 @@ class ParticleFilter(object):
             rnd_width = np.random.choice(width)
             # append a length 2 numpy array containing
             # a random height and a random width
-            particles.append(np.array([rnd_height, rnd_width]))
+            particles.append(np.array([rnd_width, rnd_height]))
         return np.array(particles)
 
     def init_p_weights(self, num_particles):
@@ -179,7 +186,6 @@ class ParticleFilter(object):
 
     def get_weights(self):
         """Returns the current particle filter's weights.
-
         This method is used by the autograder. Do not modify this function.
 
         Returns:
@@ -193,9 +199,14 @@ class ParticleFilter(object):
         Returns:
             float: similarity value.
         """
-        mse = np.sum(template.astype(np.float) - frame_cutout.astype(np.float)) / (
-            self.frame_h * self.frame_w
+        # cv2.imshow('template',template)
+        # cv2.imshow('frame_cutout',frame_cutout)
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
+        mse = np.sum(np.subtract(template, frame_cutout, dtype=np.float) ** 2) / (
+            self.template_h * self.template_w
         )
+       
         return np.exp(-mse / (2 * self.sigma_exp ** 2))
 
     def get_patch_coord(self, particle):
@@ -205,7 +216,7 @@ class ParticleFilter(object):
         Returns(dict): a dictionary of patch if particle is within bounds
                        None otherwise
         """
-        y, x = particle
+        x, y = particle
         # y coordinates are reversed because of how rows are represented
         y_min = int(y - self.template_h / 2)
         y_max = int(y + self.template_h / 2)
@@ -214,8 +225,8 @@ class ParticleFilter(object):
         if y_min > 0 and y_max < self.frame_h and x_min > 0 and x_max < self.frame_w:
             return {"y_max": y_max, "y_min": y_min, "x_min": x_min, "x_max": x_max}
         else:
+            print("threw out")
             return None
-
 
     def resample_particles(self):
         """Returns a new set of particles
@@ -262,7 +273,7 @@ class ParticleFilter(object):
             y_min = patch_xy["y_min"]
             x_max = patch_xy["x_max"]
             x_min = patch_xy["x_min"]
-            print(patch_xy)
+            patch = self.frame[y_min:y_max, x_min:x_max]
             return self.frame[y_min:y_max, x_min:x_max]
         else:
             return None
@@ -292,15 +303,30 @@ class ParticleFilter(object):
         for i, particle in enumerate(self.particles):
             patch = self.get_patch(particle)
             err = self.get_error_metric(self.template, patch)
-            self.weights[i] += err
-
+            # print(err)
+            self.weights[i] = err
+        # print(np.around(self.weights, decimals=3))
         # normalize weights
+        # print("============particles=================")
+        # print(self.particles)
         self.weights /= np.sum(self.weights)
+        # print("==============weights===================")
+        # print(self.weights)
         # update dynamics using random gaussian
         self.particles += np.random.normal(
-            0, self.sigma_dyn, self.particles.shape
+            0, 1.5 * self.sigma_dyn, self.particles.shape
         ).astype(np.int)
-        
+
+    def get_eucld_dist(self, pt_1, pt_2):
+        """
+        Args:
+            pt_1 (tuple): tuple of y and x of point 1
+            pt_2 (tuple): tuple of y and x of point 2
+        Returns (float): euclidian distance of point 1 and 2
+        """
+        pt_1_x, pt_1_y = pt_1
+        pt_2_x, pt_2_y = pt_2
+        return np.sqrt((pt_1_y - pt_2_y) ** 2 + (pt_1_x - pt_2_x) ** 2)
 
     def render(self, frame_in):
         """Visualizes current particle filter state.
@@ -340,8 +366,44 @@ class ParticleFilter(object):
             x_weighted_mean += self.particles[i, 0] * self.weights[i]
             y_weighted_mean += self.particles[i, 1] * self.weights[i]
 
-        # Complete the rest of the code as instructed.
-        raise NotImplementedError
+        #  Every particle's (x, y) location in the distribution should be
+        #  plotted by drawing a colored dot point on the image. Remember that
+        #  this should be the center of the window, not the corner.
+        RADIUS = 1
+        THICKNESS = 2
+        for i, (p_x, p_y) in enumerate(self.particles):
+            c = int(self.weights[i] * 10000)
+            COLOR = (c, c, c)
+            cv2.circle(frame_in, (p_x, p_y), RADIUS, COLOR, THICKNESS)
+        #  Draw the rectangle of the tracking window associated with the
+        #  Bayesian estimate for the current location which is simply the
+        #  weighted mean of the (x, y) of the particles.
+        weighted_mean_xy = (x_weighted_mean, y_weighted_mean)
+        COLOR = (0, 0, 0)
+        rect_xy = self.get_patch_coord(weighted_mean_xy)
+        # upper left point
+        pt_1 = (rect_xy["x_min"], rect_xy["y_min"])
+        # lower right point
+        pt_2 = (rect_xy["x_max"], rect_xy["y_max"])
+        cv2.rectangle(frame_in, pt_1, pt_2, COLOR, THICKNESS)
+        #  Finally we need to get some sense of the standard deviation or
+        #  spread of the distribution. First, find the distance of every
+        #  particle to the weighted mean. Next, take the weighted sum of these
+        #  distances and plot a circle centered at the weighted mean with this
+        #  radius.
+        COLOR = (200, 200, 0)
+        weighted_sum_dist = 0
+        for i, particle in enumerate(self.particles):
+            dist = self.get_eucld_dist(weighted_mean_xy, particle)
+            weighted_sum_dist += dist * self.weights[i]
+        cv2.circle(
+            frame_in,
+            (int(x_weighted_mean), int(y_weighted_mean)),
+            int(weighted_sum_dist),
+            COLOR,
+            THICKNESS,
+        )
+        time.sleep(2)
 
 
 class AppearanceModelPF(ParticleFilter):
