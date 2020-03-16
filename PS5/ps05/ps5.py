@@ -136,14 +136,14 @@ class ParticleFilter(object):
         self.particles = self.init_particles(
             self.frame_h, self.frame_w, self.num_particles
         )
-        # initialize weights with uniform weights
         self.weights = self.init_p_weights(self.num_particles)
 
     def get_gray_scale(self, frame):
         img_temp_R = frame[:, :, 0]
         img_temp_G = frame[:, :, 1]
         img_temp_B = frame[:, :, 2]
-        img_temp = img_temp_R * 0.48 + img_temp_G * 0.40 + img_temp_B * 0.12
+        img_temp = img_temp_R * 0.3 + img_temp_G * 0.58 + img_temp_B * 0.12
+        img_temp = cv2.GaussianBlur(img_temp,(5,5),0)
         return img_temp
 
     def init_particles(self, height, width, num_particles):
@@ -199,15 +199,10 @@ class ParticleFilter(object):
         Returns:
             float: similarity value.
         """
-        # cv2.imshow('template',template)
-        # cv2.imshow('frame_cutout',frame_cutout)
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        mse = np.sum(np.subtract(template, frame_cutout, dtype=np.float) ** 2) / (
-            self.template_h * self.template_w
-        )
-       
-        return np.exp(-mse / (2 * self.sigma_exp ** 2))
+        mse = np.sum((template.astype(np.float) - frame_cutout.astype(np.float)) ** 2)
+        mse /= float(self.template_h * self.template_w)
+
+        return np.exp(-mse / (2.0 * self.sigma_exp ** 2.0))
 
     def get_patch_coord(self, particle):
         """
@@ -222,11 +217,37 @@ class ParticleFilter(object):
         y_max = int(y + self.template_h / 2)
         x_min = int(x - self.template_w / 2)
         x_max = int(x + self.template_w / 2)
-        if y_min > 0 and y_max < self.frame_h and x_min > 0 and x_max < self.frame_w:
-            return {"y_max": y_max, "y_min": y_min, "x_min": x_min, "x_max": x_max}
-        else:
-            print("threw out")
-            return None
+        # limit particles to borders
+        if y_min < 0:
+            offset = 0 - y_min
+            y_min = 0
+            y_max += offset
+        elif y_max > self.frame_h:
+            offset = self.frame_h -y_max
+            y_max = self.frame_h
+            y_min += offset
+        if x_min < 0:
+            offset = 0 - x_min
+            x_min = 0
+            x_max += offset
+        elif x_max > self.frame_w:
+            offset = self.frame_w - x_max
+            x_max = self.frame_w
+            x_min += offset
+        return {"x_min": x_min, "x_max": x_max, "y_min": y_min, "y_max": y_max}
+
+    def get_particle_from_patch_coord(self, patch_coord):
+        """
+        Args:
+            patch (dict): patch coordinates
+        Returns (np.array): particle from patch coordinates
+        """
+        return np.array(
+            [
+                int(patch_coord["x_min"] + self.template_w / 2),
+                int(patch_coord["y_min"] + self.template_h / 2),
+            ]
+        )
 
     def resample_particles(self):
         """Returns a new set of particles
@@ -250,13 +271,20 @@ class ParticleFilter(object):
         )
 
         # continue resampling until number of particles is met
-        while len(rsmp_particles) < self.num_particles:
-            r_idx = int(np.random.randint(self.num_particles))
+        for r_idx in range(self.num_particles):
             p_idx = rsmp_indicies[r_idx]
             rsmp = self.particles[p_idx]
-            # check bounds
-            if self.get_patch_coord(rsmp):
-                rsmp_particles.append(rsmp)
+            # boundary checking
+            patch_coord = self.get_patch_coord(rsmp)
+            new_particle = self.get_particle_from_patch_coord(patch_coord)
+            r_x, r_y = rsmp
+            p_x, p_y = new_particle
+            if r_x != p_x or r_y != p_y:
+                print("not equal!")
+                print(rsmp)
+                print(patch_coord)
+                print(new_particle)
+            rsmp_particles.append(new_particle)
 
         return np.array(rsmp_particles)
 
@@ -268,12 +296,15 @@ class ParticleFilter(object):
         Returns (np.array): the image patch cooresponding to particle
         """
         patch_xy = self.get_patch_coord(particle)
+        # print("particle")
+        # print(particle)
+        # print("patch")
+        # print(patch_xy)
         if patch_xy:
             y_max = patch_xy["y_max"]
             y_min = patch_xy["y_min"]
             x_max = patch_xy["x_max"]
             x_min = patch_xy["x_min"]
-            patch = self.frame[y_min:y_max, x_min:x_max]
             return self.frame[y_min:y_max, x_min:x_max]
         else:
             return None
@@ -309,12 +340,21 @@ class ParticleFilter(object):
         # normalize weights
         # print("============particles=================")
         # print(self.particles)
+        # print("===========================================")
+        # print("----min----")
+        # print(np.min(self.weights))
+        # print("----max----")
+        # print(np.max(self.weights))
+        # print("----avg----")
+        # print(np.average(self.weights))
+        # print("----std----")
+        # print(np.std(self.weights))
         self.weights /= np.sum(self.weights)
         # print("==============weights===================")
         # print(self.weights)
         # update dynamics using random gaussian
         self.particles += np.random.normal(
-            0, 1.5 * self.sigma_dyn, self.particles.shape
+            0, self.sigma_dyn, self.particles.shape
         ).astype(np.int)
 
     def get_eucld_dist(self, pt_1, pt_2):
@@ -403,7 +443,7 @@ class ParticleFilter(object):
             COLOR,
             THICKNESS,
         )
-        time.sleep(2)
+        time.sleep(3)
 
 
 class AppearanceModelPF(ParticleFilter):
