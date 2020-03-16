@@ -279,11 +279,6 @@ class ParticleFilter(object):
             new_particle = self.get_particle_from_patch_coord(patch_coord)
             r_x, r_y = rsmp
             p_x, p_y = new_particle
-            if r_x != p_x or r_y != p_y:
-                print("not equal!")
-                print(rsmp)
-                print(patch_coord)
-                print(new_particle)
             rsmp_particles.append(new_particle)
 
         return np.array(rsmp_particles)
@@ -296,10 +291,6 @@ class ParticleFilter(object):
         Returns (np.array): the image patch cooresponding to particle
         """
         patch_xy = self.get_patch_coord(particle)
-        # print("particle")
-        # print(particle)
-        # print("patch")
-        # print(patch_xy)
         if patch_xy:
             y_max = patch_xy["y_max"]
             y_min = patch_xy["y_min"]
@@ -308,6 +299,24 @@ class ParticleFilter(object):
             return self.frame[y_min:y_max, x_min:x_max]
         else:
             return None
+    
+    def recalculate_weights(self):
+        """
+        recalculates the weights of the particlces
+        """
+        for i, particle in enumerate(self.particles):
+            patch = self.get_patch(particle)
+            err = self.get_error_metric(self.template, patch)
+            self.weights[i] = err
+        self.weights /= np.sum(self.weights)
+
+    def update_dynamics(self):
+        """
+        updates particles using gaussian dynamics model
+        """
+        self.particles += np.random.normal(
+            0, self.sigma_dyn, self.particles.shape
+        ).astype(np.int)
 
     def process(self, frame):
         """Processes a video frame (image) and updates the filter's state.
@@ -327,35 +336,15 @@ class ParticleFilter(object):
         Returns:
             None.
         """
+        self.frame = self.get_gray_scale(frame)
         # resample particles
         self.particles = self.resample_particles()
 
-        # calculate weights
-        for i, particle in enumerate(self.particles):
-            patch = self.get_patch(particle)
-            err = self.get_error_metric(self.template, patch)
-            # print(err)
-            self.weights[i] = err
-        # print(np.around(self.weights, decimals=3))
-        # normalize weights
-        # print("============particles=================")
-        # print(self.particles)
-        # print("===========================================")
-        # print("----min----")
-        # print(np.min(self.weights))
-        # print("----max----")
-        # print(np.max(self.weights))
-        # print("----avg----")
-        # print(np.average(self.weights))
-        # print("----std----")
-        # print(np.std(self.weights))
-        self.weights /= np.sum(self.weights)
-        # print("==============weights===================")
-        # print(self.weights)
         # update dynamics using random gaussian
-        self.particles += np.random.normal(
-            0, self.sigma_dyn, self.particles.shape
-        ).astype(np.int)
+        self.update_dynamics()
+
+        # calculate weights
+        self.recalculate_weights()
 
     def get_eucld_dist(self, pt_1, pt_2):
         """
@@ -418,8 +407,8 @@ class ParticleFilter(object):
         #  Draw the rectangle of the tracking window associated with the
         #  Bayesian estimate for the current location which is simply the
         #  weighted mean of the (x, y) of the particles.
-        weighted_mean_xy = (x_weighted_mean, y_weighted_mean)
-        COLOR = (0, 0, 0)
+        weighted_mean_xy = (int(x_weighted_mean), int(y_weighted_mean))
+        COLOR = (255, 255, 255)
         rect_xy = self.get_patch_coord(weighted_mean_xy)
         # upper left point
         pt_1 = (rect_xy["x_min"], rect_xy["y_min"])
@@ -443,7 +432,12 @@ class ParticleFilter(object):
             COLOR,
             THICKNESS,
         )
-        time.sleep(3)
+        # print(weighted_mean_xy)
+        # print(self.get_patch_coord(weighted_mean_xy))
+        # print(self.get_particle_from_patch_coord(self.get_patch_coord(weighted_mean_xy)))
+        # cv2.imshow('image', cv2.convertScaleAbs(self.get_patch(weighted_mean_xy)))
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
 
 
 class AppearanceModelPF(ParticleFilter):
