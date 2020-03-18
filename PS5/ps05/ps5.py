@@ -391,7 +391,8 @@ class ParticleFilter(object):
         Returns (tuple): x and y coordinates of the most weighted estimate
         """
         max_weight_idx = np.argmax(self.weights)
-        return self.particles[max_weight_idx]
+        x, y = self.particles[max_weight_idx]
+        return (x, y)
     
     def get_mean_estimate_coord(self):
         """
@@ -509,9 +510,9 @@ class AppearanceModelPF(ParticleFilter):
         """
         best_est_xy = None
         if self.time > 3:
-            best_est_xy = self.get_mean_estimate_coord()
-        elif self.time > 10:
             best_est_xy = self.get_best_estimate_coord()
+        elif self.time > 15:
+            best_est_xy = self.get_mean_estimate_coord()
         
         self.time += 1
         return best_est_xy
@@ -530,9 +531,10 @@ class AppearanceModelPF(ParticleFilter):
                 best_est = self.resize_img(best_est, dst_h, dst_w)
             self.template
             self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template
-        cv2.imshow("temp", cv2.convertScaleAbs(self.template))
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # print(self.time)
+        # cv2.imshow("temp", cv2.convertScaleAbs(self.template))
+        # cv2.waitKey(0)
+        # cv2.destroyAllWindows()
         
     
     def process(self, frame):
