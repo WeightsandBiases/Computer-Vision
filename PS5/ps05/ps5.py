@@ -3,7 +3,6 @@ CS6476 Problem Set 5 imports. Only Numpy and cv2 are allowed.
 """
 import numpy as np
 import cv2
-import time
 
 
 # Assignment code
@@ -139,12 +138,11 @@ class ParticleFilter(object):
         self.weights = self.init_p_weights(self.num_particles)
 
     def get_gray_scale(self, frame):
-        img_temp_R = frame[:, :, 0]
-        img_temp_G = frame[:, :, 1]
-        img_temp_B = frame[:, :, 2]
-        img_temp = img_temp_R * 0.3 + img_temp_G * 0.58 + img_temp_B * 0.12
-        img_temp = cv2.GaussianBlur(img_temp,(5,5),0)
-        return img_temp
+        frame_R = frame[:, :, 0]
+        frame_G = frame[:, :, 1]
+        frame_B = frame[:, :, 2]
+        frame = frame_R * 0.3 + frame_G * 0.58 + frame_B * 0.12
+        return frame
 
     def init_particles(self, height, width, num_particles):
         """
@@ -173,6 +171,29 @@ class ParticleFilter(object):
         Returns (np.array): numpy array containing weights
         """
         return np.ones(self.num_particles) / self.num_particles
+
+    def resize_img(self,
+        src,
+        dst_height,
+        dst_width,
+        interpolation=cv2.INTER_CUBIC,
+        border_mode=cv2.BORDER_REFLECT101):
+        """
+        resizes an image using cv.remap
+        Args:
+            src (numpy.array): original image
+
+        Returns:
+            (numpy.array): resized image
+        """
+        # note: careful when specifying width and height
+        mesh = np.meshgrid(range(int(dst_width)), range(int(dst_height)))
+        map_x, map_y = mesh
+        map_x = map_x.astype(np.float32)
+        map_y = map_y.astype(np.float32)
+        return cv2.remap(
+            src, map_x, map_y, interpolation=interpolation, borderMode=border_mode
+        )
 
     def get_particles(self):
         """Returns the current particles state.
@@ -223,7 +244,7 @@ class ParticleFilter(object):
             y_min = 0
             y_max += offset
         elif y_max > self.frame_h:
-            offset = self.frame_h -y_max
+            offset = self.frame_h - y_max
             y_max = self.frame_h
             y_min += offset
         if x_min < 0:
@@ -299,7 +320,7 @@ class ParticleFilter(object):
             return self.frame[y_min:y_max, x_min:x_max]
         else:
             return None
-    
+
     def recalculate_weights(self):
         """
         recalculates the weights of the particlces
@@ -336,6 +357,8 @@ class ParticleFilter(object):
         Returns:
             None.
         """
+        # 2 days worth of debugging because I forgot the following line
+        # to update frames.
         self.frame = self.get_gray_scale(frame)
         # resample particles
         self.particles = self.resample_particles()
@@ -356,6 +379,14 @@ class ParticleFilter(object):
         pt_1_x, pt_1_y = pt_1
         pt_2_x, pt_2_y = pt_2
         return np.sqrt((pt_1_y - pt_2_y) ** 2 + (pt_1_x - pt_2_x) ** 2)
+
+    def get_best_estimate_coord(self):
+        """
+        Calculates the best estimate coordinates
+        Returns (tuple): x and y coordinates of the most weighted estimate
+        """
+        max_weight_idx = np.argmax(self.weights)
+        return self.particles[max_weight_idx]
 
     def render(self, frame_in):
         """Visualizes current particle filter state.
@@ -432,12 +463,6 @@ class ParticleFilter(object):
             COLOR,
             THICKNESS,
         )
-        # print(weighted_mean_xy)
-        # print(self.get_patch_coord(weighted_mean_xy))
-        # print(self.get_particle_from_patch_coord(self.get_patch_coord(weighted_mean_xy)))
-        # cv2.imshow('image', cv2.convertScaleAbs(self.get_patch(weighted_mean_xy)))
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
 
 
 class AppearanceModelPF(ParticleFilter):
@@ -464,6 +489,20 @@ class AppearanceModelPF(ParticleFilter):
         # The way to do it is:
         # self.some_parameter_name = kwargs.get('parameter_name', default_value)
 
+    def update_template(self):
+        """
+        updates the template using
+        Template(t) = alpha*Best(t) + (1 - alpha)Template(t-1)
+        """
+        best_est_xy = self.get_best_estimate_coord()
+        best_est = self.get_patch(best_est_xy)
+        # resize image if templates do not match
+        if best_est.shape != self.template.shape:
+            dst_h, dst_w = self.template.shape[:2]
+            best_est = self.resize_img(best_est, dst_h, dst_w)
+        self.template
+        self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template
+    
     def process(self, frame):
         """Processes a video frame (image) and updates the filter's state.
 
@@ -477,7 +516,20 @@ class AppearanceModelPF(ParticleFilter):
         Returns:
             None.
         """
-        raise NotImplementedError
+        # 2 days worth of debugging because I forgot the following line
+        # to update frames.
+        self.frame = self.get_gray_scale(frame)
+        # resample particles
+        self.particles = self.resample_particles()
+
+        # update dynamics using random gaussian
+        self.update_dynamics()
+
+        # calculate weights
+        self.recalculate_weights()
+
+        # update template
+        self.update_template()
 
 
 class MDParticleFilter(AppearanceModelPF):

@@ -1,12 +1,7 @@
 import numpy as np
 import cv2
 import unittest
-
 import ps5
-
-# import ps5_1 as ps5
-
-# # import ps5_2 as ps5
 import os
 
 # Older numpy versions can't deal with zero covariance
@@ -69,33 +64,22 @@ def visualize_filter(pf, frame):
 
 
 # class PS5_KF_Tests(unittest.TestCase):
+
 #     def test_KF_Blank(self):
 #         file_path = "input_images/input_test/blank"
 #         template = cv2.imread("input_images/input_test/template.jpg")
 #         images, centers = load_data(file_path)
-#         kf = ps5.KalmanFilter(*centers[0, :])
-#         assert_scene(
-#             kf,
-#             images,
-#             centers,
-#             NOISE_0,
-#             template,
-#             lambda x: self.assertAlmostEqual(x, 0, delta=10),
-#         )
+#         kf = ps5.KalmanFilter(*centers[0,:])
+#         assert_scene(kf, images, centers, NOISE_0, template,
+#                      lambda x: self.assertAlmostEqual(x, 0, delta=10))
 
 #     def test_KF_Color(self):
 #         file_path = "input_images/input_test/color"
 #         template = cv2.imread("input_images/input_test/template.jpg")
 #         images, centers = load_data(file_path)
-#         kf = ps5.KalmanFilter(*centers[0, :])
-#         assert_scene(
-#             kf,
-#             images,
-#             centers,
-#             NOISE_0,
-#             template,
-#             lambda x: self.assertAlmostEqual(x, 0, delta=15),
-#         )
+#         kf = ps5.KalmanFilter(*centers[0,:])
+#         assert_scene(kf, images, centers, NOISE_0, template,
+#                      lambda x: self.assertAlmostEqual(x, 0, delta=15))
 
 
 class PS5_PF_Tests(unittest.TestCase):
@@ -128,7 +112,7 @@ class PS5_PF_Tests(unittest.TestCase):
         self, distance, max_distance, frame_num, predicted_center, actual_center
     ):
         self.assertTrue(
-            distance <= 300,
+            distance <= max_distance,
             "Test failed at frame: {} \n"
             "Estimated center is too far from the actual "
             "center. \n"
@@ -160,29 +144,25 @@ class PS5_PF_Tests(unittest.TestCase):
                     distance, max_distance, i, predicted_center, (c_x, c_y)
                 )
 
-    def test_PF_base_1(self):
-        test_path = "input_images/input_test/circle/1/"
-        template_path = "input_images/input_test/circle/template.png"
+    # def test_PF_base_1(self):
+    #     test_path = "input_images/input_test/circle/1/"
+    #     template_path = "input_images/input_test/circle/template.png"
 
-        scene = self.get_scene_info(test_path, template_path)
+    #     scene = self.get_scene_info(test_path, template_path)
 
-        frame, template_rect, template, img_path, img_list, points_array = scene
+    #     frame, template_rect, template, img_path, img_list, points_array = scene
 
-        num_particles = 100
-        sigma_mse = 10.0
-        sigma_dyn = 10.0
-        pf = ps5.ParticleFilter(
-            frame,
-            template,
-            num_particles=num_particles,
-            sigma_exp=sigma_mse,
-            sigma_dyn=sigma_dyn,
-            template_coords=template_rect,
-            temp=template_rect,
-        )
+    #     num_particles = 100
+    #     sigma_mse = 10.
+    #     sigma_dyn = 10.
+    #     pf = ps5.ParticleFilter(frame, template,
+    #                             num_particles=num_particles,
+    #                             sigma_exp=sigma_mse, sigma_dyn=sigma_dyn,
+    #                             template_coords=template_rect,
+    #                             temp=template_rect)
 
-        shape_radius = [25]
-        self.run_filter(pf, img_path, img_list, points_array, shape_radius)
+    #     shape_radius = [25]
+    #     self.run_filter(pf, img_path, img_list, points_array, shape_radius)
 
     # def test_PF_base_2(self):
     #     test_path = "input_images/input_test/circle/2/"
@@ -193,17 +173,13 @@ class PS5_PF_Tests(unittest.TestCase):
     #     frame, template_rect, template, img_path, img_list, points_array = scene
 
     #     num_particles = 100
-    #     sigma_mse = 10.0
-    #     sigma_dyn = 10.0
-    #     pf = ps5.ParticleFilter(
-    #         frame,
-    #         template,
-    #         num_particles=num_particles,
-    #         sigma_exp=sigma_mse,
-    #         sigma_dyn=sigma_dyn,
-    #         template_coords=template_rect,
-    #         temp=template_rect,
-    #     )
+    #     sigma_mse = 10.
+    #     sigma_dyn = 10.
+    #     pf = ps5.ParticleFilter(frame, template,
+    #                             num_particles=num_particles,
+    #                             sigma_exp=sigma_mse, sigma_dyn=sigma_dyn,
+    #                             template_coords=template_rect,
+    #                             temp=template_rect)
 
     #     shape_radius = [25]
     #     self.run_filter(pf, img_path, img_list, points_array, shape_radius)
@@ -217,83 +193,79 @@ class PS5_PF_Tests(unittest.TestCase):
     #     frame, template_rect, template, img_path, img_list, points_array = scene
 
     #     num_particles = 100
-    #     sigma_mse = 10.0
-    #     sigma_dyn = 10.0
-    #     pf = ps5.ParticleFilter(
-    #         frame,
-    #         template,
-    #         num_particles=num_particles,
-    #         sigma_exp=sigma_mse,
-    #         sigma_dyn=sigma_dyn,
-    #         template_coords=template_rect,
-    #         temp=template_rect,
-    #     )
+    #     sigma_mse = 10.
+    #     sigma_dyn = 10.
+    #     pf = ps5.ParticleFilter(frame, template,
+    #                             num_particles=num_particles,
+    #                             sigma_exp=sigma_mse, sigma_dyn=sigma_dyn,
+    #                             template_coords=template_rect,
+    #                             temp=template_rect)
 
     #     shape_radius = [25]
     #     self.run_filter(pf, img_path, img_list, points_array, shape_radius)
 
-    # def test_PF_ellipse_1(self):
-    #     test_path = "input_images/input_test/ellipse/1/"
-    #     template_path = "input_images/input_test/ellipse/template.png"
+    def test_PF_ellipse_1(self):
+        test_path = "input_images/input_test/ellipse/1/"
+        template_path = "input_images/input_test/ellipse/template.png"
 
-    #     scene = self.get_scene_info(test_path, template_path)
+        scene = self.get_scene_info(test_path, template_path)
 
-    #     frame, template_rect, template, img_path, img_list, points_array = scene
+        frame, template_rect, template, img_path, img_list, points_array = scene
 
-    #     pf = ps5.AppearanceModelPF(
-    #         frame,
-    #         template,
-    #         num_particles=400,
-    #         sigma_exp=10.0,
-    #         sigma_dyn=20.0,
-    #         alpha=0.05,
-    #         template_coords=template_rect,
-    #     )
+        pf = ps5.AppearanceModelPF(
+            frame,
+            template,
+            num_particles=400,
+            sigma_exp=10.0,
+            sigma_dyn=20.0,
+            alpha=0.05,
+            template_coords=template_rect,
+        )
 
-    #     axes_shape = (50, 25)
-    #     self.run_filter(pf, img_path, img_list, points_array, axes_shape)
+        axes_shape = (50, 25)
+        self.run_filter(pf, img_path, img_list, points_array, axes_shape)
 
-    # def test_PF_ellipse_2(self):
-    #     test_path = "input_images/input_test/ellipse/2/"
-    #     template_path = "input_images/input_test/ellipse/template.png"
+    def test_PF_ellipse_2(self):
+        test_path = "input_images/input_test/ellipse/2/"
+        template_path = "input_images/input_test/ellipse/template.png"
 
-    #     scene = self.get_scene_info(test_path, template_path)
+        scene = self.get_scene_info(test_path, template_path)
 
-    #     frame, template_rect, template, img_path, img_list, points_array = scene
+        frame, template_rect, template, img_path, img_list, points_array = scene
 
-    #     pf = ps5.AppearanceModelPF(
-    #         frame,
-    #         template,
-    #         num_particles=400,
-    #         sigma_exp=10.0,
-    #         sigma_dyn=20.0,
-    #         alpha=0.05,
-    #         template_coords=template_rect,
-    #     )
+        pf = ps5.AppearanceModelPF(
+            frame,
+            template,
+            num_particles=400,
+            sigma_exp=10.0,
+            sigma_dyn=20.0,
+            alpha=0.05,
+            template_coords=template_rect,
+        )
 
-    #     axes_shape = (50, 25)
-    #     self.run_filter(pf, img_path, img_list, points_array, axes_shape)
+        axes_shape = (50, 25)
+        self.run_filter(pf, img_path, img_list, points_array, axes_shape)
 
-    # def test_PF_ellipse_3(self):
-    #     test_path = "input_images/input_test/ellipse/3/"
-    #     template_path = "input_images/input_test/ellipse/template.png"
+    def test_PF_ellipse_3(self):
+        test_path = "input_images/input_test/ellipse/3/"
+        template_path = "input_images/input_test/ellipse/template.png"
 
-    #     scene = self.get_scene_info(test_path, template_path)
+        scene = self.get_scene_info(test_path, template_path)
 
-    #     frame, template_rect, template, img_path, img_list, points_array = scene
+        frame, template_rect, template, img_path, img_list, points_array = scene
 
-    #     pf = ps5.AppearanceModelPF(
-    #         frame,
-    #         template,
-    #         num_particles=400,
-    #         sigma_exp=10.0,
-    #         sigma_dyn=20.0,
-    #         alpha=0.05,
-    #         template_coords=template_rect,
-    #     )
+        pf = ps5.AppearanceModelPF(
+            frame,
+            template,
+            num_particles=400,
+            sigma_exp=10.0,
+            sigma_dyn=20.0,
+            alpha=0.05,
+            template_coords=template_rect,
+        )
 
-    #     axes_shape = (50, 25)
-    #     self.run_filter(pf, img_path, img_list, points_array, axes_shape)
+        axes_shape = (50, 25)
+        self.run_filter(pf, img_path, img_list, points_array, axes_shape)
 
 
 if __name__ == "__main__":
