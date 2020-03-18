@@ -3,7 +3,7 @@ CS6476 Problem Set 5 imports. Only Numpy and cv2 are allowed.
 """
 import numpy as np
 import cv2
-
+import time
 
 # Assignment code
 class KalmanFilter(object):
@@ -220,6 +220,10 @@ class ParticleFilter(object):
         Returns:
             float: similarity value.
         """
+        # resize if necessary
+        if frame_cutout.shape != self.template.shape:
+            dst_h, dst_w = self.template.shape[:2]
+            frame_cutout = self.resize_img(frame_cutout, dst_h, dst_w)
         mse = np.sum((template.astype(np.float) - frame_cutout.astype(np.float)) ** 2)
         mse /= float(self.template_h * self.template_w)
 
@@ -287,6 +291,7 @@ class ParticleFilter(object):
         # resample with replacement from particles using np.random.choice
         # resamp_indicies, a np.array containing random indicies in
         # num particlces
+            
         rsmp_indicies = np.random.choice(
             self.num_particles, size=self.num_particles, replace=True, p=self.weights
         )
@@ -387,6 +392,19 @@ class ParticleFilter(object):
         """
         max_weight_idx = np.argmax(self.weights)
         return self.particles[max_weight_idx]
+    
+    def get_mean_estimate_coord(self):
+        """
+        Calculates the best estimate coordinates
+        Returns (tuple): x and y coordinates of the weighted mean estimate
+        """
+        x_weighted_mean = 0
+        y_weighted_mean = 0
+
+        for i in range(self.num_particles):
+            x_weighted_mean += self.particles[i, 0] * self.weights[i]
+            y_weighted_mean += self.particles[i, 1] * self.weights[i]
+        return (x_weighted_mean, y_weighted_mean)
 
     def render(self, frame_in):
         """Visualizes current particle filter state.
@@ -419,12 +437,7 @@ class ParticleFilter(object):
                                     particle filter.
         """
 
-        x_weighted_mean = 0
-        y_weighted_mean = 0
-
-        for i in range(self.num_particles):
-            x_weighted_mean += self.particles[i, 0] * self.weights[i]
-            y_weighted_mean += self.particles[i, 1] * self.weights[i]
+        x_weighted_mean, y_weighted_mean = self.get_mean_estimate_coord()
 
         #  Every particle's (x, y) location in the distribution should be
         #  plotted by drawing a colored dot point on the image. Remember that
@@ -477,7 +490,6 @@ class AppearanceModelPF(ParticleFilter):
         the elements used in ParticleFilter will be inherited so you do not
         have to declare them again.
         """
-
         super(AppearanceModelPF, self).__init__(
             frame, template, **kwargs
         )  # call base class constructor
@@ -488,20 +500,40 @@ class AppearanceModelPF(ParticleFilter):
         #
         # The way to do it is:
         # self.some_parameter_name = kwargs.get('parameter_name', default_value)
+        # timer to update template
+        self.time = 0
+
+    def choose_estimate(self):
+        """
+        chooses the best esimation method based on time
+        """
+        best_est_xy = None
+        if self.time > 3:
+            best_est_xy = self.get_mean_estimate_coord()
+        elif self.time > 10:
+            best_est_xy = self.get_best_estimate_coord()
+        
+        self.time += 1
+        return best_est_xy
 
     def update_template(self):
         """
         updates the template using
         Template(t) = alpha*Best(t) + (1 - alpha)Template(t-1)
         """
-        best_est_xy = self.get_best_estimate_coord()
-        best_est = self.get_patch(best_est_xy)
-        # resize image if templates do not match
-        if best_est.shape != self.template.shape:
-            dst_h, dst_w = self.template.shape[:2]
-            best_est = self.resize_img(best_est, dst_h, dst_w)
-        self.template
-        self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template
+        best_est_xy = self.choose_estimate()
+        if best_est_xy:
+            best_est = self.get_patch(best_est_xy)
+            # resize image if templates do not match
+            if best_est.shape != self.template.shape:
+                dst_h, dst_w = self.template.shape[:2]
+                best_est = self.resize_img(best_est, dst_h, dst_w)
+            self.template
+            self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template
+        cv2.imshow("temp", cv2.convertScaleAbs(self.template))
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+        
     
     def process(self, frame):
         """Processes a video frame (image) and updates the filter's state.

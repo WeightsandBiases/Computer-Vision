@@ -173,8 +173,8 @@ def part_1b():
 
     # Define process and measurement arrays if you want to use other than the
     # default. Pass them to KalmanFilter.
-    Q = None  # Process noise array
-    R = None  # Measurement noise array
+    Q = 0.2 * np.eye(4)  # Process noise array
+    R = 0.5 * np.eye(4)  # Measurement noise array
 
     kf = ps5.KalmanFilter(template_loc["x"], template_loc["y"])
 
@@ -202,8 +202,8 @@ def part_1c():
 
     # Define process and measurement arrays if you want to use other than the
     # default. Pass them to KalmanFilter.
-    Q = None  # Process noise array
-    R = None  # Measurement noise array
+    Q = 0.2 * np.eye(4)  # Process noise array
+    R = 0.5 * np.eye(4)  # Measurement noise array
 
     kf = ps5.KalmanFilter(init_pos["x"], init_pos["y"])
 
@@ -230,9 +230,9 @@ def part_2a():
         99: os.path.join(output_dir, "ps5-2-a-4.png"),
     }
 
-    num_particles = 0  # Define the number of particles
-    sigma_mse = 0  # Define the value of sigma for the measurement exponential equation
-    sigma_dyn = 0  # Define the value of sigma for the particles movement (dynamics)
+    num_particles = 500  # Define the number of particles
+    sigma_mse = 10  # Define the value of sigma for the measurement exponential equation
+    sigma_dyn = 10  # Define the value of sigma for the particles movement (dynamics)
 
     run_particle_filter(
         ps5.ParticleFilter,  # particle filter model class
@@ -257,9 +257,9 @@ def part_2b():
         99: os.path.join(output_dir, "ps5-2-b-4.png"),
     }
 
-    num_particles = 0  # Define the number of particles
-    sigma_mse = 0  # Define the value of sigma for the measurement exponential equation
-    sigma_dyn = 0  # Define the value of sigma for the particles movement (dynamics)
+    num_particles = 500  # Define the number of particles
+    sigma_mse = 10  # Define the value of sigma for the measurement exponential equation
+    sigma_dyn = 20  # Define the value of sigma for the particles movement (dynamics)
 
     run_particle_filter(
         ps5.ParticleFilter,  # particle filter model class
@@ -275,17 +275,16 @@ def part_2b():
 
 def part_3():
     template_rect = {"x": 538, "y": 377, "w": 73, "h": 117}
-
     save_frames = {
         22: os.path.join(output_dir, "ps5-3-a-1.png"),
         50: os.path.join(output_dir, "ps5-3-a-2.png"),
         160: os.path.join(output_dir, "ps5-3-a-3.png"),
     }
 
-    num_particles = 0  # Define the number of particles
-    sigma_mse = 0  # Define the value of sigma for the measurement exponential equation
-    sigma_dyn = 0  # Define the value of sigma for the particles movement (dynamics)
-    alpha = 0  # Set a value for alpha
+    num_particles = 1000  # Define the number of particles
+    sigma_mse = 10  # Define the value of sigma for the measurement exponential equation
+    sigma_dyn = 12  # Define the value of sigma for the particles movement (dynamics)
+    alpha = 0.3  # Set a value for alpha
 
     run_particle_filter(
         ps5.AppearanceModelPF,  # particle filter model class
@@ -311,9 +310,9 @@ def part_4():
         300: os.path.join(output_dir, "ps5-4-a-4.png"),
     }
 
-    num_particles = 0  # Define the number of particles
-    sigma_md = 0  # Define the value of sigma for the measurement exponential equation
-    sigma_dyn = 0  # Define the value of sigma for the particles movement (dynamics)
+    num_particles = 500  # Define the number of particles
+    sigma_md = 5  # Define the value of sigma for the measurement exponential equation
+    sigma_dyn = 3  # Define the value of sigma for the particles movement (dynamics)
 
     run_particle_filter(
         ps5.MDParticleFilter,
@@ -352,11 +351,11 @@ def part_6():
 
 
 if __name__ == "__main__":
-    part_1b()
-    part_1c()
-    part_2a()
-    part_2b()
+    # part_1b()
+    # part_1c()
+    # part_2a()
+    # part_2b()
     part_3()
-    part_4()
-    part_5()
-    part_6()
+    # part_4()
+    # part_5()
+    # part_6()
