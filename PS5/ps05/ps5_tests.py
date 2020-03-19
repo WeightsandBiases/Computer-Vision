@@ -64,22 +64,33 @@ def visualize_filter(pf, frame):
 
 
 class PS5_KF_Tests(unittest.TestCase):
-
     def test_KF_Blank(self):
         file_path = "input_images/input_test/blank"
         template = cv2.imread("input_images/input_test/template.jpg")
         images, centers = load_data(file_path)
-        kf = ps5.KalmanFilter(*centers[0,:])
-        assert_scene(kf, images, centers, NOISE_0, template,
-                     lambda x: self.assertAlmostEqual(x, 0, delta=10))
+        kf = ps5.KalmanFilter(*centers[0, :])
+        assert_scene(
+            kf,
+            images,
+            centers,
+            NOISE_0,
+            template,
+            lambda x: self.assertAlmostEqual(x, 0, delta=10),
+        )
 
     def test_KF_Color(self):
         file_path = "input_images/input_test/color"
         template = cv2.imread("input_images/input_test/template.jpg")
         images, centers = load_data(file_path)
-        kf = ps5.KalmanFilter(*centers[0,:])
-        assert_scene(kf, images, centers, NOISE_0, template,
-                     lambda x: self.assertAlmostEqual(x, 0, delta=15))
+        kf = ps5.KalmanFilter(*centers[0, :])
+        assert_scene(
+            kf,
+            images,
+            centers,
+            NOISE_0,
+            template,
+            lambda x: self.assertAlmostEqual(x, 0, delta=15),
+        )
 
 
 class PS5_PF_Tests(unittest.TestCase):
@@ -153,13 +164,17 @@ class PS5_PF_Tests(unittest.TestCase):
         frame, template_rect, template, img_path, img_list, points_array = scene
 
         num_particles = 100
-        sigma_mse = 10.
-        sigma_dyn = 10.
-        pf = ps5.ParticleFilter(frame, template,
-                                num_particles=num_particles,
-                                sigma_exp=sigma_mse, sigma_dyn=sigma_dyn,
-                                template_coords=template_rect,
-                                temp=template_rect)
+        sigma_mse = 10.0
+        sigma_dyn = 10.0
+        pf = ps5.ParticleFilter(
+            frame,
+            template,
+            num_particles=num_particles,
+            sigma_exp=sigma_mse,
+            sigma_dyn=sigma_dyn,
+            template_coords=template_rect,
+            temp=template_rect,
+        )
 
         shape_radius = [25]
         self.run_filter(pf, img_path, img_list, points_array, shape_radius)
@@ -173,13 +188,17 @@ class PS5_PF_Tests(unittest.TestCase):
         frame, template_rect, template, img_path, img_list, points_array = scene
 
         num_particles = 100
-        sigma_mse = 10.
-        sigma_dyn = 10.
-        pf = ps5.ParticleFilter(frame, template,
-                                num_particles=num_particles,
-                                sigma_exp=sigma_mse, sigma_dyn=sigma_dyn,
-                                template_coords=template_rect,
-                                temp=template_rect)
+        sigma_mse = 10.0
+        sigma_dyn = 10.0
+        pf = ps5.ParticleFilter(
+            frame,
+            template,
+            num_particles=num_particles,
+            sigma_exp=sigma_mse,
+            sigma_dyn=sigma_dyn,
+            template_coords=template_rect,
+            temp=template_rect,
+        )
 
         shape_radius = [25]
         self.run_filter(pf, img_path, img_list, points_array, shape_radius)
@@ -193,13 +212,17 @@ class PS5_PF_Tests(unittest.TestCase):
         frame, template_rect, template, img_path, img_list, points_array = scene
 
         num_particles = 100
-        sigma_mse = 10.
-        sigma_dyn = 10.
-        pf = ps5.ParticleFilter(frame, template,
-                                num_particles=num_particles,
-                                sigma_exp=sigma_mse, sigma_dyn=sigma_dyn,
-                                template_coords=template_rect,
-                                temp=template_rect)
+        sigma_mse = 10.0
+        sigma_dyn = 10.0
+        pf = ps5.ParticleFilter(
+            frame,
+            template,
+            num_particles=num_particles,
+            sigma_exp=sigma_mse,
+            sigma_dyn=sigma_dyn,
+            template_coords=template_rect,
+            temp=template_rect,
+        )
 
         shape_radius = [25]
         self.run_filter(pf, img_path, img_list, points_array, shape_radius)

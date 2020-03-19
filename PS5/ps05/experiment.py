@@ -14,6 +14,143 @@ NOISE_2 = {"x": 7.5, "y": 7.5}
 
 
 # Helper code
+
+
+def run_particle_filter_5(
+    filter_class,
+    imgs_dir,
+    template_rect1,
+    template_rect2,
+    template_rect3,
+    save_frames={},
+    **kwargs
+):
+    """Runs a particle filter on a given video and template.
+    Create an object of type pf_class, passing in initial video frame,
+    template (extracted from first frame using template_rect), and any
+    keyword arguments.
+    Do not modify this function except for the debugging flag.
+    Args:
+        filter_class (object): particle filter class to instantiate
+                           (e.g. ParticleFilter).
+        imgs_dir (str): path to input images.
+        template_rect (dict): template bounds (x, y, w, h), as float
+                              or int.
+        save_frames (dict): frames to save
+                            {<frame number>|'template': <filename>}.
+        **kwargs: arbitrary keyword arguments passed on to particle
+                  filter class.
+    Returns:
+        None.
+    """
+
+    imgs_list = [f for f in os.listdir(imgs_dir) if f[0] != "." and f.endswith(".jpg")]
+    imgs_list.sort()
+
+    # Initialize objects
+    template1 = None
+    pf1 = None
+    template2 = None
+    pf2 = None
+    template3 = None
+    pf3 = None
+    # frames of important scenes
+    template_1_end = 60
+    template_3_start = 28
+    template_2_end = 47
+    frame_num = 0
+
+    # Loop over video (till last frame or Ctrl+C is presssed)
+    for img in imgs_list:
+
+        frame = cv2.imread(os.path.join(imgs_dir, img))
+
+        # Extract template and initialize (one-time only)
+        if frame_num <= template_1_end:
+            if template1 is None:
+                template1 = frame[
+                    int(template_rect1["y"]) : int(
+                        template_rect1["y"] + template_rect1["h"]
+                    ),
+                    int(template_rect1["x"]) : int(
+                        template_rect1["x"] + template_rect1["w"]
+                    ),
+                ]
+                cv2.imwrite("template_1.png", template1)
+                if "template" in save_frames:
+                    cv2.imwrite(save_frames["template"], template)
+
+                pf1 = filter_class(frame, template1, **kwargs)
+
+            # Process frame
+            pf1.process(frame)
+
+        if frame_num <= template_2_end:
+            if template2 is None:
+                template2 = frame[
+                    int(template_rect2["y"]) : int(
+                        template_rect2["y"] + template_rect2["h"]
+                    ),
+                    int(template_rect2["x"]) : int(
+                        template_rect2["x"] + template_rect2["w"]
+                    ),
+                ]
+                cv2.imwrite("template_2.png", template2)
+                if "template" in save_frames:
+                    cv2.imwrite(save_frames["template"], template)
+
+                pf2 = filter_class(frame, template2, **kwargs)
+
+            # Process frame
+            pf2.process(frame)
+
+        if frame_num >= template_3_start:
+            if template3 is None:
+                template3 = frame[
+                    int(template_rect3["y"]) : int(
+                        template_rect3["y"] + template_rect3["h"]
+                    ),
+                    int(template_rect3["x"]) : int(
+                        template_rect3["x"] + template_rect3["w"]
+                    ),
+                ]
+                cv2.imwrite("template_3.png", template3)
+                if "template" in save_frames:
+                    cv2.imwrite(save_frames["template"], template)
+
+                pf3 = filter_class(frame, template3, **kwargs)
+
+            # Process frame
+            pf3.process(frame)
+
+        if True:  # For debugging, it displays every frame
+            out_frame = frame.copy()
+            if frame_num <= template_1_end:
+                pf1.render(out_frame)
+            if frame_num <= template_2_end:
+                pf2.render(out_frame)
+            if frame_num >= template_3_start:
+                pf3.render(out_frame)
+            cv2.imshow("Tracking", out_frame)
+            cv2.waitKey(1)
+
+        # Render and save output, if indicated
+        if frame_num in save_frames:
+            frame_out = frame.copy()
+            if frame_num <= template_1_end:
+                pf1.render(frame_out)
+            if frame_num <= template_2_end:
+                pf2.render(frame_out)
+            if frame_num >= template_3_start:
+                pf3.render(frame_out)
+            cv2.imwrite(save_frames[frame_num], frame_out)
+
+        # Update frame number
+        frame_num += 1
+        if frame_num % 20 == 0:
+            print("Working on frame {}".format(frame_num))
+
+
 def run_particle_filter(
     filter_class, imgs_dir, template_rect, save_frames={}, **kwargs
 ):
@@ -321,6 +458,13 @@ def part_4():
         sigma_dyn=sigma_dyn,
         alpha=alpha,
         template_coords=template_rect,
+        template_scale_low=0.982,
+        template_scale_high=1.00,
+        occ_thresh_1=4100,
+        occ_thresh_2=3600,
+        occ_time_1=100,
+        occ_time_2=175,
+        occ_dyn_scale=0.05,
     )  # Add more if you need to
 
 
@@ -335,7 +479,43 @@ def part_5():
 
     Place all your work in this file and this section.
     """
-    raise NotImplementedError
+
+    template_rect1 = {"x": 80, "y": 150, "w": 80, "h": 150}
+    template_rect2 = {"x": 295, "y": 220, "w": 40, "h": 90}
+    template_rect3 = {"x": 0, "y": 200, "w": 50, "h": 110}
+
+    save_frames = {
+        28: os.path.join(output_dir, "ps5-5-a-1.png"),
+        55: os.path.join(output_dir, "ps5-5-a-2.png"),
+        70: os.path.join(output_dir, "ps5-5-a-3.png"),
+    }
+    # save_frames = {300: os.path.join(output_dir, 'test.png')}
+
+    num_particles = 1200  # Define the number of particles
+    sigma_mse = 10  # Define the value of sigma for the measurement exponential equation
+    sigma_dyn = 15  # Define the value of sigma for the particles movement (dynamics)
+    alpha = 0.00  # Set a value for alpha
+
+    run_particle_filter_5(
+        ps5.MDParticleFilter,  # particle filter model class
+        os.path.join(input_dir, "TUD-Campus"),
+        # input video
+        template_rect1,
+        template_rect2,
+        template_rect3,
+        save_frames,
+        num_particles=num_particles,
+        sigma_exp=sigma_mse,
+        sigma_dyn=sigma_dyn,
+        alpha=alpha,
+        template_scale_low=0.99,
+        template_scale_high=1.01,
+        occ_thresh_1=5000,
+        occ_thresh_2=3600,
+        occ_time_1=10,
+        occ_time_2=175,
+        occ_dyn_scale=0.10,
+    )
 
 
 def part_6():
