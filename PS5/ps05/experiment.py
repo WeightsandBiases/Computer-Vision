@@ -7,7 +7,7 @@ import numpy as np
 
 # I/O directories
 input_dir = "input_images"
-output_dir = "./"
+output_dir = "output"
 
 NOISE_1 = {"x": 2.5, "y": 2.5}
 NOISE_2 = {"x": 7.5, "y": 7.5}
@@ -47,7 +47,6 @@ def run_particle_filter(
     template = None
     pf = None
     frame_num = 0
-
     # Loop over video (till last frame or Ctrl+C is presssed)
     for img in imgs_list:
 
@@ -256,11 +255,9 @@ def part_2b():
         84: os.path.join(output_dir, "ps5-2-b-3.png"),
         99: os.path.join(output_dir, "ps5-2-b-4.png"),
     }
-
     num_particles = 500  # Define the number of particles
     sigma_mse = 10  # Define the value of sigma for the measurement exponential equation
     sigma_dyn = 20  # Define the value of sigma for the particles movement (dynamics)
-
     run_particle_filter(
         ps5.ParticleFilter,  # particle filter model class
         os.path.join(input_dir, "pres_debate_noisy"),
@@ -310,10 +307,10 @@ def part_4():
         300: os.path.join(output_dir, "ps5-4-a-4.png"),
     }
 
-    num_particles = 500  # Define the number of particles
-    sigma_md = 5  # Define the value of sigma for the measurement exponential equation
-    sigma_dyn = 3  # Define the value of sigma for the particles movement (dynamics)
-
+    num_particles = 1200  # Define the number of particles
+    sigma_md = 10  # Define the value of sigma for the measurement exponential equation
+    sigma_dyn = 12  # Define the value of sigma for the particles movement (dynamics)
+    alpha = 0.0
     run_particle_filter(
         ps5.MDParticleFilter,
         os.path.join(input_dir, "pedestrians"),
@@ -322,6 +319,7 @@ def part_4():
         num_particles=num_particles,
         sigma_exp=sigma_md,
         sigma_dyn=sigma_dyn,
+        alpha=alpha,
         template_coords=template_rect,
     )  # Add more if you need to
 
@@ -355,7 +353,7 @@ if __name__ == "__main__":
     # part_1c()
     # part_2a()
     # part_2b()
-    part_3()
+    # part_3()
     # part_4()
-    # part_5()
+    part_5()
     # part_6()

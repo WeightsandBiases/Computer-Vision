@@ -129,14 +129,13 @@ class ParticleFilter(object):
         # The way to do it is:
         # self.some_parameter_name = kwargs.get('parameter_name', default_value)
         self.template = self.get_gray_scale(template)
-        self.template_h, self.template_w = template.shape[:2]
         self.frame = self.get_gray_scale(frame)
         self.frame_h, self.frame_w = frame.shape[:2]
         self.particles = self.init_particles(
             self.frame_h, self.frame_w, self.num_particles
         )
         self.weights = self.init_p_weights(self.num_particles)
-
+    
     def get_gray_scale(self, frame):
         frame_R = frame[:, :, 0]
         frame_G = frame[:, :, 1]
@@ -172,29 +171,6 @@ class ParticleFilter(object):
         """
         return np.ones(self.num_particles) / self.num_particles
 
-    def resize_img(self,
-        src,
-        dst_height,
-        dst_width,
-        interpolation=cv2.INTER_CUBIC,
-        border_mode=cv2.BORDER_REFLECT101):
-        """
-        resizes an image using cv.remap
-        Args:
-            src (numpy.array): original image
-
-        Returns:
-            (numpy.array): resized image
-        """
-        # note: careful when specifying width and height
-        mesh = np.meshgrid(range(int(dst_width)), range(int(dst_height)))
-        map_x, map_y = mesh
-        map_x = map_x.astype(np.float32)
-        map_y = map_y.astype(np.float32)
-        return cv2.remap(
-            src, map_x, map_y, interpolation=interpolation, borderMode=border_mode
-        )
-
     def get_particles(self):
         """Returns the current particles state.
 
@@ -213,6 +189,18 @@ class ParticleFilter(object):
             numpy.array: weights data structure.
         """
         return self.weights
+    
+    def calculate_mse(self, template, frame_cutout):
+        # resize if necessary
+        temp_h, temp_w = template.shape[:2]
+        if frame_cutout.shape != template.shape:
+            f_h, f_w = frame_cutout.shape[:2]
+            f_y = float(temp_h) / float(f_h)
+            f_x = float(temp_w) / float(f_w)
+            frame_cutout = cv2.resize(frame_cutout, None, fx =f_x, fy=f_y)
+        mse = np.sum((template.astype(np.float) - frame_cutout.astype(np.float)) ** 2)
+        mse /= float(temp_h * temp_h)
+        return mse
 
     def get_error_metric(self, template, frame_cutout):
         """Returns the error metric used based on the similarity measure.
@@ -220,12 +208,7 @@ class ParticleFilter(object):
         Returns:
             float: similarity value.
         """
-        # resize if necessary
-        if frame_cutout.shape != self.template.shape:
-            dst_h, dst_w = self.template.shape[:2]
-            frame_cutout = self.resize_img(frame_cutout, dst_h, dst_w)
-        mse = np.sum((template.astype(np.float) - frame_cutout.astype(np.float)) ** 2)
-        mse /= float(self.template_h * self.template_w)
+        mse = self.calculate_mse(template, frame_cutout)
 
         return np.exp(-mse / (2.0 * self.sigma_exp ** 2.0))
 
@@ -237,11 +220,12 @@ class ParticleFilter(object):
                        None otherwise
         """
         x, y = particle
+        temp_h, temp_w = self.template.shape[:2]
         # y coordinates are reversed because of how rows are represented
-        y_min = int(y - self.template_h / 2)
-        y_max = int(y + self.template_h / 2)
-        x_min = int(x - self.template_w / 2)
-        x_max = int(x + self.template_w / 2)
+        y_min = int(y - temp_h / 2)
+        y_max = int(y + temp_h / 2)
+        x_min = int(x - temp_w / 2)
+        x_max = int(x + temp_w / 2)
         # limit particles to borders
         if y_min < 0:
             offset = 0 - y_min
@@ -267,10 +251,11 @@ class ParticleFilter(object):
             patch (dict): patch coordinates
         Returns (np.array): particle from patch coordinates
         """
+        temp_h, temp_w = self.template.shape[:2]
         return np.array(
             [
-                int(patch_coord["x_min"] + self.template_w / 2),
-                int(patch_coord["y_min"] + self.template_h / 2),
+                int(patch_coord["x_min"] + temp_w / 2),
+                int(patch_coord["y_min"] + temp_h / 2),
             ]
         )
 
@@ -511,7 +496,7 @@ class AppearanceModelPF(ParticleFilter):
         best_est_xy = None
         if self.time > 3:
             best_est_xy = self.get_best_estimate_coord()
-        elif self.time > 15:
+        elif self.time > 10:
             best_est_xy = self.get_mean_estimate_coord()
         
         self.time += 1
@@ -525,17 +510,15 @@ class AppearanceModelPF(ParticleFilter):
         best_est_xy = self.choose_estimate()
         if best_est_xy:
             best_est = self.get_patch(best_est_xy)
+
             # resize image if templates do not match
             if best_est.shape != self.template.shape:
-                dst_h, dst_w = self.template.shape[:2]
-                best_est = self.resize_img(best_est, dst_h, dst_w)
-            self.template
-            self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template
-        # print(self.time)
-        # cv2.imshow("temp", cv2.convertScaleAbs(self.template))
-        # cv2.waitKey(0)
-        # cv2.destroyAllWindows()
-        
+                b_h, b_w = best_est.shape[:2]
+                temp_h, temp_w = self.template.shape[:2]
+                f_y = float(temp_h) / float(b_h)
+                f_x = float(temp_w) / float(b_w)
+                best_est = cv2.resize(best_est, None, fx =f_x, fy=f_y)
+            self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template 
     
     def process(self, frame):
         """Processes a video frame (image) and updates the filter's state.
@@ -566,6 +549,7 @@ class AppearanceModelPF(ParticleFilter):
         self.update_template()
 
 
+
 class MDParticleFilter(AppearanceModelPF):
     """A variation of particle filter tracker that incorporates more dynamics."""
 
@@ -576,7 +560,6 @@ class MDParticleFilter(AppearanceModelPF):
         above. By calling super(...) all the elements used in ParticleFilter
         will be inherited so you don't have to declare them again.
         """
-
         super(MDParticleFilter, self).__init__(
             frame, template, **kwargs
         )  # call base class constructor
@@ -585,6 +568,134 @@ class MDParticleFilter(AppearanceModelPF):
         #
         # The way to do it is:
         # self.some_parameter_name = kwargs.get('parameter_name', default_value)
+        self.templates = self.init_templates(self.template)
+    
+    def init_templates(self, template):
+        """
+        returns (np.array): initialized templates of different sizes
+        """
+        templates = list()
+        # low and high for how much the image scaling is allowed to change
+        LOW = 0.982
+        HIGH = 1.00
+
+        for i in range(self.num_particles):
+            scale = np.random.uniform(low=LOW, high=HIGH)
+            resized_template = cv2.resize(np.copy(template), None, fx=scale, fy=scale)
+            templates.append(resized_template)
+        return np.array(templates)
+
+    def get_best_estimate(self):
+        """
+        Calculates the best estimate coordinates
+        Returns (tuple): x and y coordinates of the most weighted estimate
+        """
+        max_weight_idx = np.argmax(self.weights)
+        x, y = self.particles[max_weight_idx]
+        return (x, y, max_weight_idx)
+
+    def get_mean_estimate(self):
+        """
+        Calculates the best estimate coordinates
+        Returns (tuple): x and y coordinates of the mean estimate
+        """
+        x_weighted_mean = 0
+        y_weighted_mean = 0
+
+        for i in range(self.num_particles):
+            x_weighted_mean += self.particles[i, 0] * self.weights[i]
+            y_weighted_mean += self.particles[i, 1] * self.weights[i]
+        # find the particle closest to the weighted mean
+        dists = list()
+        for i, particle in enumerate(self.particles):
+            dists.append(self.get_eucld_dist((x_weighted_mean, y_weighted_mean), particle))
+        dists = np.array(dists)
+        idx = np.argmin(dists)
+
+        return (x_weighted_mean, y_weighted_mean, idx)
+
+    def choose_estimate(self):
+        """
+        chooses the best esimation method based on time
+        """
+        best_est = None
+        if self.time > 3:
+            best_est = self.get_best_estimate()
+        if self.time > 10:
+            best_est = self.get_mean_estimate()
+        self.time += 1
+        return best_est
+
+    def update_template(self):
+        """
+        updates the template using
+        Template(t) = alpha*Best(t) + (1 - alpha)Template(t-1)
+        """
+        best_est = self.choose_estimate()
+        
+        if best_est:
+            best_est_x, best_est_y, best_est_idx = best_est
+            best_est = self.get_patch((best_est_x, best_est_y))
+            self.template = self.templates[best_est_idx]
+            # resize image if templates do not match
+            if best_est.shape != self.template.shape:
+                b_h, b_w = best_est.shape[:2]
+                temp_h, temp_w = self.template.shape[:2]
+                f_y = float(temp_h) / float(b_h)
+                f_x = float(temp_w) / float(b_w)
+                best_est = cv2.resize(best_est, None, fx =f_x, fy=f_y)
+            self.template = self.alpha * best_est + (1.0 - self.alpha) * self.template 
+
+    def update_templates(self):
+        """
+        logic for updating templates in spite of occlusion
+        """
+        if self.time > 3:
+            self.templates = self.init_templates(self.template)
+    
+    def recalculate_weights(self):
+        """
+        recalculates the weights of the particlces
+        """
+        mses = list()
+        for i, particle in enumerate(self.particles):
+            patch = self.get_patch(particle)
+            err = self.get_error_metric(self.templates[i], patch)
+            self.weights[i] = err
+            mses.append(self.calculate_mse(self.templates[i], patch))
+        print(max(mses))
+        self.weights /= np.sum(self.weights)
+    
+    def is_occlusion(self, threshold_1=4100, threshold_2=3600, time_1=100, time_2 = 175):
+        """
+        returns (bool): True if occlusion is detected by comparing
+        err against a threshold
+        """
+        """
+        recalculates the weights of the particlces
+        """
+
+        for i, particle in enumerate(self.particles):
+            patch = self.get_patch(particle)
+            mse = self.calculate_mse(self.template, patch)
+            if mse > threshold_1 and self.time > time_1:
+                print("TRUE_1")
+                return True
+            elif mse > threshold_2 and self.time > time_2:
+                print("TRUE_2")
+                return True
+        print(self.time)
+        return False
+    
+    def update_dynamics_occlusion(self):
+        """
+        updates particles using gaussian dynamics model
+        """
+
+        sigma_dyn = 0.05 * self.sigma_dyn
+        self.particles += np.random.normal(
+            0, sigma_dyn, self.particles.shape
+        ).astype(np.int)
 
     def process(self, frame):
         """Processes a video frame (image) and updates the filter's state.
@@ -600,4 +711,33 @@ class MDParticleFilter(AppearanceModelPF):
         Returns:
             None.
         """
-        raise NotImplementedError
+        
+        # 2 days worth of debugging because I forgot the following line
+        # to update frames.
+        self.frame = self.get_gray_scale(frame)
+        # if self.time >= 120:
+            # cv2.imshow("img", cv2.convertScaleAbs(self.template))
+            # cv2.waitKey(0)
+            # cv2.destroyAllWindows()
+        
+        
+        # # only resample if not occlusion
+        if not self.is_occlusion():
+            # resample particles
+            self.particles = self.resample_particles()
+
+            # update dynamics using random gaussian
+            self.update_dynamics()
+            # update templates
+            self.update_templates()
+
+            # calculate weights
+            self.recalculate_weights()
+
+            # update template
+            self.update_template()
+        
+        else:
+            self.update_dynamics_occlusion()
+            # update template
+            self.update_template()
