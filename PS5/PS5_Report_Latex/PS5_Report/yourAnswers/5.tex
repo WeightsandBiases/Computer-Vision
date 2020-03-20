@@ -1,4 +1,15 @@
-% A line starting with a % character is a comment and wont be included in the report.
-% Always use two backslashes like \\ to insert a new line. Take a look at the example below.
-I think \\
-my answer is ...
+Part 5 was solved using a modification of the MD particle filter from part 4\\
+As the algorithm can detect and respond to occlusions of the target.\\
+Particle filters were selected in part 5 because the templates of the targets\\
+are changing as they are moving and require multiple samples (particles) to\\
+track. (For example the third target has a white shirt that is later occluded\\
+in the scene as he rotates his body). In order to track our three targets\\
+three particle filters were used.  A template was taken for each target\\
+when they entered the scene, and the particle filter would be stopped at \\
+the frame the target exits the scene.  This is somewhat of a knowledge based\\
+approach as it requires knowlege of when the target will enter a scene. A \\
+more general solution would be to use mse thresholds, as was done in part 4\\
+to detect entry and exits of targets in the scene.  Overall, this assignement\\
+taught me the challenges and intricacies of computer vision and I have gained\\
+I can only imagine trying to do this to create snapchat filters or animojis\\
+I have gained greater appreciation for this ever advancing field.\\

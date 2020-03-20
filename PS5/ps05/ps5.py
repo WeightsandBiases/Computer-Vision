@@ -3,7 +3,7 @@ CS6476 Problem Set 5 imports. Only Numpy and cv2 are allowed.
 """
 import numpy as np
 import cv2
-import time
+
 
 # Assignment code
 class KalmanFilter(object):

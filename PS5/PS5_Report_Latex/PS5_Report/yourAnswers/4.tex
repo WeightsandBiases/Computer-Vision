@@ -1,4 +1,21 @@
-% A line starting with a % character is a comment and wont be included in the report.
-% Always use two backslashes like \\ to insert a new line. Take a look at the example below.
-I think \\
-my answer is ...
+Tracking through occlusions with image resizing was particularly difficult.\\
+I broke down the problem into two sets of challenges and solved them separately\\
+1) The first challenge was that of resizing the template.\\
+As the lady moves away from the camera, the image of her gets smaller.\\
+To solve this challenge, we add uniform randomness to the size of\\
+our tracking template to the image as a third dimension along with the\\
+x and y positions of her in the image.  As the particles track and are\\
+resampled, the particles with the best template size will get resampled\\
+more often.\\
+\\
+2) The second challenge was that of occlusion.  Two individuals move into\\
+the camera and occlude our target from being tracked. To solve the occlusion\\
+challenge the algorithm must first detect occlusion, this is done using\\
+a simple threshold of the mean squared error.  If the mse of the  template\\
+and the particles are too great, occlusion is detected. When occlusion \\
+is detected, the algorithm will have lower dynamics (where particles will fan\\
+out and search for the target) and resampling and calculation of weights are\\
+avoided completely\\
+\\
+By combining these two methods, the algorithm was able to track the target\\
+for part 4\\
