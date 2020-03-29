@@ -8,7 +8,6 @@ INPUT_DIR = "input_images/input_test"
 
 
 class PCA(unittest.TestCase):
-
     def test_mean_face(self):
 
         for i in range(1, 4):
@@ -23,9 +22,11 @@ class PCA(unittest.TestCase):
             result = ps6.get_mean_face(x_data)
 
             correct = np.allclose(result, x_mean, atol=1)
-            message = "Values do not match the reference solution. " \
-                      "This function should only compute the mean of each " \
-                      "column."
+            message = (
+                "Values do not match the reference solution. "
+                "This function should only compute the mean of each "
+                "column."
+            )
             self.assertTrue(correct, message)
 
     def test_pca(self):
@@ -34,7 +35,7 @@ class PCA(unittest.TestCase):
 
         for i in range(1, 4):
 
-            k = k_list[i-1]
+            k = k_list[i - 1]
 
             file_name = "x_data_pca_k{}_{}.npy".format(k, i)
             file_path = os.path.join(INPUT_DIR, file_name)
@@ -47,8 +48,10 @@ class PCA(unittest.TestCase):
             eig_vecs, eig_vals = ps6.pca(x_data, k)
 
             correct = eig_vals.size == k
-            message = "Wrong number of eigenvalues. K used: {}. " \
-                      "Returned eigenvalues: {}".format(k, eig_vals)
+            message = (
+                "Wrong number of eigenvalues. K used: {}. "
+                "Returned eigenvalues: {}".format(k, eig_vals)
+            )
             self.assertTrue(correct, message)
 
             for j in range(k):
@@ -58,14 +61,18 @@ class PCA(unittest.TestCase):
 
 
 class Boosting(unittest.TestCase):
-
     def setUp(self):
-        self.threshold_list = [[87, 62, 122, 59, 125],
-                               [138, 69, 54, 117, 61],
-                               [65, 108,  95,  82, 132]]
+        self.threshold_list = [
+            [87, 62, 122, 59, 125],
+            [138, 69, 54, 117, 61],
+            [65, 108, 95, 82, 132],
+        ]
 
-        self.y_pred_ref = ["ypred_boosting_1.npy", "ypred_boosting_2.npy",
-                           "ypred_boosting_3.npy"]
+        self.y_pred_ref = [
+            "ypred_boosting_1.npy",
+            "ypred_boosting_2.npy",
+            "ypred_boosting_3.npy",
+        ]
 
         self.x_data = np.load(os.path.join(INPUT_DIR, "x_boosting_1.npy"))
         self.alphas = np.load(os.path.join(INPUT_DIR, "alpha_1.npy"))
@@ -81,8 +88,9 @@ class Boosting(unittest.TestCase):
 
             # Create a list of untrained classifiers to verify
             # predict operation.
-            classifiers = [ps6.WeakClassifier([], [], [], thresh=t) for t in
-                           thresh_vals]
+            classifiers = [
+                ps6.WeakClassifier([], [], [], thresh=t) for t in thresh_vals
+            ]
 
             ytrain = np.zeros((x_data.shape[0],))  # Doesn't matter for this test
             numIte = 0  # Doesn't matter for this test
@@ -113,8 +121,9 @@ class Boosting(unittest.TestCase):
 
             # Create a list of untrained classifiers to verify
             # predict operation.
-            classifiers = [ps6.WeakClassifier([], [], [], thresh=t) for t in
-                           thresh_vals]
+            classifiers = [
+                ps6.WeakClassifier([], [], [], thresh=t) for t in thresh_vals
+            ]
 
             ytrain = np.zeros((x_data.shape[0],))  # Doesn't matter for this test
             numIte = 0  # Doesn't matter for this test
@@ -139,13 +148,13 @@ class Boosting(unittest.TestCase):
 
 
 class HaarFeature(unittest.TestCase):
-
     def setUp(self):
         self.input_dir = os.path.join("input_images", "input_test")
 
     def test_preview(self):
-        feat_types = 2 * [(1, 2)] + 2 * [(2, 1)] + 2 * [(1, 3)] \
-                     + 2 * [(3, 1)] + 2 * [(2, 2)]
+        feat_types = (
+            2 * [(1, 2)] + 2 * [(2, 1)] + 2 * [(1, 3)] + 2 * [(3, 1)] + 2 * [(2, 2)]
+        )
         positions = 5 * [(6, 9), (8, 5)]
         sizes = 5 * [(14, 18), (11, 15)]
         samples = 5 * [0, 1]
@@ -155,7 +164,9 @@ class HaarFeature(unittest.TestCase):
             pos = positions[j]
             size = sizes[j]
             s = samples[j]
-            file_name = "haar_preview_ft{}_pos{}_sz{}_{}.npy".format(feat_type, pos, size, s)
+            file_name = "haar_preview_ft{}_pos{}_sz{}_{}.npy".format(
+                feat_type, pos, size, s
+            )
 
             ref_img = np.load(os.path.join(self.input_dir, file_name))
 
@@ -200,46 +211,87 @@ class HaarFeature(unittest.TestCase):
         size = (30, 30)
 
         if feat_type == (2, 1):
-            A = np.sum(test_image[pos[0]:pos[0] + size[0] // 2,
-                                  pos[1]:pos[1] + size[1]])
-            B = np.sum(test_image[pos[0] + size[0] // 2:pos[0] + size[0],
-                                  pos[1]:pos[1] + size[1]])
+            A = np.sum(
+                test_image[pos[0] : pos[0] + size[0] // 2, pos[1] : pos[1] + size[1]]
+            )
+            B = np.sum(
+                test_image[
+                    pos[0] + size[0] // 2 : pos[0] + size[0], pos[1] : pos[1] + size[1]
+                ]
+            )
             ref = A - B
 
         if feat_type == (1, 2):
-            A = np.sum(test_image[pos[0]:pos[0] + size[0],
-                                  pos[1]:pos[1] + size[1] // 2])
-            B = np.sum(test_image[pos[0]:pos[0] + size[0],
-                                  pos[1] + size[1] // 2:pos[1] + size[1]])
+            A = np.sum(
+                test_image[pos[0] : pos[0] + size[0], pos[1] : pos[1] + size[1] // 2]
+            )
+            B = np.sum(
+                test_image[
+                    pos[0] : pos[0] + size[0], pos[1] + size[1] // 2 : pos[1] + size[1]
+                ]
+            )
             ref = A - B
 
         if feat_type == (3, 1):
-            A = np.sum(test_image[pos[0]:pos[0] + size[0] // 3,
-                                  pos[1]:pos[1] + size[1]])
-            B = np.sum(test_image[pos[0] + size[0] // 3:pos[0] + 2 * size[0] // 3,
-                                  pos[1]:pos[1] + size[1]])
-            C = np.sum(test_image[pos[0] + 2 * size[0] // 3:pos[0] + size[0],
-                                  pos[1]:pos[1] + size[1]])
+            A = np.sum(
+                test_image[pos[0] : pos[0] + size[0] // 3, pos[1] : pos[1] + size[1]]
+            )
+            B = np.sum(
+                test_image[
+                    pos[0] + size[0] // 3 : pos[0] + 2 * size[0] // 3,
+                    pos[1] : pos[1] + size[1],
+                ]
+            )
+            C = np.sum(
+                test_image[
+                    pos[0] + 2 * size[0] // 3 : pos[0] + size[0],
+                    pos[1] : pos[1] + size[1],
+                ]
+            )
             ref = A - B + C
 
         if feat_type == (1, 3):
-            A = np.sum(test_image[pos[0]:pos[0] + size[0],
-                                  pos[1]:pos[1] + size[1] // 3])
-            B = np.sum(test_image[pos[0]:pos[0] + size[0],
-                                  pos[1] + size[1] // 3:pos[1] + 2 * size[1] // 3])
-            C = np.sum(test_image[pos[0]:pos[0] + size[0],
-                                  pos[1] + 2 * size[1] // 3:pos[1] + size[1]])
+            A = np.sum(
+                test_image[pos[0] : pos[0] + size[0], pos[1] : pos[1] + size[1] // 3]
+            )
+            B = np.sum(
+                test_image[
+                    pos[0] : pos[0] + size[0],
+                    pos[1] + size[1] // 3 : pos[1] + 2 * size[1] // 3,
+                ]
+            )
+            C = np.sum(
+                test_image[
+                    pos[0] : pos[0] + size[0],
+                    pos[1] + 2 * size[1] // 3 : pos[1] + size[1],
+                ]
+            )
             ref = A - B + C
 
         if feat_type == (2, 2):
-            A = np.sum(test_image[pos[0]:pos[0] + size[0] // 2,
-                                  pos[1]:pos[1] + size[1] // 2])
-            B = np.sum(test_image[pos[0]:pos[0] + size[0] // 2,
-                                  pos[1] + size[1] // 2:pos[1] + size[1]])
-            C = np.sum(test_image[pos[0] + size[0] // 2:pos[0] + size[0],
-                                  pos[1]:pos[1] + size[1] // 2])
-            D = np.sum(test_image[pos[0] + size[0] // 2:pos[0] + size[0],
-                                  pos[1] + size[1] // 2:pos[1] + size[1]])
+            A = np.sum(
+                test_image[
+                    pos[0] : pos[0] + size[0] // 2, pos[1] : pos[1] + size[1] // 2
+                ]
+            )
+            B = np.sum(
+                test_image[
+                    pos[0] : pos[0] + size[0] // 2,
+                    pos[1] + size[1] // 2 : pos[1] + size[1],
+                ]
+            )
+            C = np.sum(
+                test_image[
+                    pos[0] + size[0] // 2 : pos[0] + size[0],
+                    pos[1] : pos[1] + size[1] // 2,
+                ]
+            )
+            D = np.sum(
+                test_image[
+                    pos[0] + size[0] // 2 : pos[0] + size[0],
+                    pos[1] + size[1] // 2 : pos[1] + size[1],
+                ]
+            )
             ref = -A + B + C - D
 
         hf = ps6.HaarFeature(feat_type, pos, size)
@@ -251,5 +303,5 @@ class HaarFeature(unittest.TestCase):
         self.assertTrue(correct, message)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

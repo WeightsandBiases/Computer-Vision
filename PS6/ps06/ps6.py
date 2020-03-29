@@ -7,7 +7,7 @@ from helper_classes import WeakClassifier, VJ_Classifier
 
 
 # assignment code
-def load_images(img, size=(32, 32)):
+def load_images(folder, size=(32, 32)):
     """Load images to workspace.
 
     Args:
@@ -28,23 +28,23 @@ def load_images(img, size=(32, 32)):
     SUBJECT_IDX = 0
     # label is the last two characters in the fie name
     LABEL_IDX = -2
-    TOK = '.'
-    
-    img_file_paths = [f for f in os.listdir(img) if f.endswith(".png")]
+    TOK = "."
+
+    img_file_paths = [f for f in os.listdir(folder) if f.endswith(".png")]
     for img_file_path in img_file_paths:
         # read in image
-        img = cv2.imread(os.path.join(img, img_file_path))
+        img = cv2.imread(os.path.join(folder, img_file_path))
         # convert to grayscale
         img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # resize image
-        img = cv2.resize(img, size)
+        img = cv2.resize(img, tuple(size))
         # flatten image
         img = img.flatten()
         x_flat_imgs.append(img)
         # get image label
         label = img_file_path.split(TOK)[SUBJECT_IDX][LABEL_IDX:]
         y_labels.append(label)
-    return (x_flat_imgs, y_labels)
+    return (np.array(x_flat_imgs), np.array(y_labels))
 
 
 def split_dataset(X, y, p):
@@ -68,8 +68,21 @@ def split_dataset(X, y, p):
             Xtest (numpy.array): Test data test 2D array.
             ytest (numpy.array): Test data labels.
     """
-
-    raise NotImplementedError
+    # length of X
+    END = X.shape[0]
+    # split point
+    SPLIT = int(END * p)
+    # randomize data
+    random_indicies = np.random.permutation(END)
+    X_rnd = X[random_indicies]
+    y_rnd = y[random_indicies]
+    # training data
+    X_train = X_rnd[:SPLIT]
+    y_train = y_rnd[:SPLIT]
+    # test data
+    X_test = X_rnd[SPLIT:]
+    y_test = y_rnd[SPLIT:]
+    return (X_train, y_train, X_test, y_test)
 
 
 def get_mean_face(x):
@@ -107,14 +120,16 @@ def pca(X, k):
     """
 
     mu = get_mean_face(X)
-    sigma = (X - mu) @ (X - mu).T
+    
+    # compute sigma using equation from lectures
+    sigma = (X - mu).T @ (X - mu)
 
     # compute eigens
-    # eigen vector is the normalized (unit “length”) eigenvectors, 
-    # such that the column v[:,i] is the eigenvector corresponding to 
+    # eigen vector is the normalized (unit “length”) eigenvectors,
+    # such that the column v[:,i] is the eigenvector corresponding to
     # the eigenvalue w[i].
     eigen_vals, eigen_vecs = np.linalg.eig(sigma)
-    # sort by the eigen values in ascending order, 
+    # sort by the eigen values in ascending order,
     # here argsort is used instead of sort
     # because we need to sort both eigen_value and eigen_vector by
     # eigen_value
@@ -125,10 +140,11 @@ def pca(X, k):
     descending_idx = ascending_idx[::-1]
     # sort the eigen values and vectors in descending order (max first)
     eigen_vals = eigen_vals[descending_idx]
-    eigen_vecs = eigen_vecs[:,descending_idx]
-    # filter out just the top k eigen values and vectors 
-    eigen_vals = eigen_vals[0:k]
-    eigen_vecs = eigen_vecs[:,0:k]
+    eigen_vecs = eigen_vecs[:, descending_idx]
+    # filter out just the top k eigen values and vectors
+    eigen_vals = eigen_vals[:k]
+    eigen_vecs = eigen_vecs[:, :k]
+    
     return (eigen_vecs, eigen_vals)
 
 
@@ -384,6 +400,7 @@ class ViolaJones:
         negImages (list): List of negative images.
         labels (numpy.array): Positive and negative labels.
     """
+
     def __init__(self, pos, neg, integral_images):
         self.haarFeatures = []
         self.integralImages = integral_images
@@ -391,15 +408,17 @@ class ViolaJones:
         self.alphas = []
         self.posImages = pos
         self.negImages = neg
-        self.labels = np.hstack((np.ones(len(pos)), -1*np.ones(len(neg))))
+        self.labels = np.hstack((np.ones(len(pos)), -1 * np.ones(len(neg))))
 
     def createHaarFeatures(self):
         # Let's take detector resolution of 24x24 like in the paper
-        FeatureTypes = {"two_horizontal": (2, 1),
-                        "two_vertical": (1, 2),
-                        "three_horizontal": (3, 1),
-                        "three_vertical": (1, 3),
-                        "four_square": (2, 2)}
+        FeatureTypes = {
+            "two_horizontal": (2, 1),
+            "two_vertical": (1, 2),
+            "three_horizontal": (3, 1),
+            "three_vertical": (1, 3),
+            "four_square": (2, 2),
+        }
 
         haarFeatures = []
         for _, feat_type in FeatureTypes.items():
@@ -408,8 +427,10 @@ class ViolaJones:
                     for posi in range(0, 24 - sizei + 1, 4):
                         for posj in range(0, 24 - sizej + 1, 4):
                             haarFeatures.append(
-                                HaarFeature(feat_type, [posi, posj],
-                                            [sizei-1, sizej-1]))
+                                HaarFeature(
+                                    feat_type, [posi, posj], [sizei - 1, sizej - 1]
+                                )
+                            )
         self.haarFeatures = haarFeatures
 
     def train(self, num_classifiers):
@@ -421,10 +442,16 @@ class ViolaJones:
         for i, im in enumerate(self.integralImages):
             scores[i, :] = [hf.evaluate(im) for hf in self.haarFeatures]
 
-        weights_pos = np.ones(len(self.posImages), dtype='float') * 1.0 / (
-                           2*len(self.posImages))
-        weights_neg = np.ones(len(self.negImages), dtype='float') * 1.0 / (
-                           2*len(self.negImages))
+        weights_pos = (
+            np.ones(len(self.posImages), dtype="float")
+            * 1.0
+            / (2 * len(self.posImages))
+        )
+        weights_neg = (
+            np.ones(len(self.negImages), dtype="float")
+            * 1.0
+            / (2 * len(self.negImages))
+        )
         weights = np.hstack((weights_pos, weights_neg))
 
         print(" -- select classifiers --")
