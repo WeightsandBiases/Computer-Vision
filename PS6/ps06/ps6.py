@@ -7,7 +7,7 @@ from helper_classes import WeakClassifier, VJ_Classifier
 
 
 # assignment code
-def load_images(folder, size=(32, 32)):
+def load_images(img, size=(32, 32)):
     """Load images to workspace.
 
     Args:
@@ -20,10 +20,31 @@ def load_images(folder, size=(32, 32)):
                              (row:observations, col:features) (float).
             y (numpy.array): 1D array of labels (int).
     """
-
-    images_files = [f for f in os.listdir(folder) if f.endswith(".png")]
-
-    raise NotImplementedError
+    x_flat_imgs = list()
+    # labels are in the following format
+    # subject##.xyz.png. We will use the number in ## as our label (“01” -> 1, “02” -> 2, etc.)
+    y_labels = list()
+    # subject is the first word in the file name
+    SUBJECT_IDX = 0
+    # label is the last two characters in the fie name
+    LABEL_IDX = -2
+    TOK = '.'
+    
+    img_file_paths = [f for f in os.listdir(img) if f.endswith(".png")]
+    for img_file_path in img_file_paths:
+        # read in image
+        img = cv2.imread(os.path.join(img, img_file_path))
+        # convert to grayscale
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        # resize image
+        img = cv2.resize(img, size)
+        # flatten image
+        img = img.flatten()
+        x_flat_imgs.append(img)
+        # get image label
+        label = img_file_path.split(TOK)[SUBJECT_IDX][LABEL_IDX:]
+        y_labels.append(label)
+    return (x_flat_imgs, y_labels)
 
 
 def split_dataset(X, y, p):
@@ -62,8 +83,9 @@ def get_mean_face(x):
     Returns:
         numpy.array: Mean face.
     """
-
-    raise NotImplementedError
+    # axis is axis or axes along which the means are computed.
+    # we want the mean of every column, thus axis is 0
+    return np.mean(x, axis=0)
 
 
 def pca(X, k):
@@ -84,7 +106,30 @@ def pca(X, k):
             eigenvalues (numpy.array): array with the top k eigenvalues.
     """
 
-    raise NotImplementedError
+    mu = get_mean_face(X)
+    sigma = (X - mu) @ (X - mu).T
+
+    # compute eigens
+    # eigen vector is the normalized (unit “length”) eigenvectors, 
+    # such that the column v[:,i] is the eigenvector corresponding to 
+    # the eigenvalue w[i].
+    eigen_vals, eigen_vecs = np.linalg.eig(sigma)
+    # sort by the eigen values in ascending order, 
+    # here argsort is used instead of sort
+    # because we need to sort both eigen_value and eigen_vector by
+    # eigen_value
+
+    ascending_idx = eigen_vals.argsort()
+    # we want the greatest eigenvalues, so we want to sort by descending
+    # order, thus we need to reverse the array using python shorthand
+    descending_idx = ascending_idx[::-1]
+    # sort the eigen values and vectors in descending order (max first)
+    eigen_vals = eigen_vals[descending_idx]
+    eigen_vecs = eigen_vecs[:,descending_idx]
+    # filter out just the top k eigen values and vectors 
+    eigen_vals = eigen_vals[0:k]
+    eigen_vecs = eigen_vecs[:,0:k]
+    return (eigen_vecs, eigen_vals)
 
 
 class Boosting:
