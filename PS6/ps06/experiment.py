@@ -66,7 +66,7 @@ def visualize_mean_face(x_mean, size, new_dims):
         numpy.array: Mean face uint8 2D array.
     """
     # reshape
-    mean_face = np.reshape(x_mean, size
+    mean_face = np.reshape(x_mean, size)
     # convert to 0 - 255 scale
     mean_face = cv2.convertScaleAbs(mean_face)
     # resize to new_dims
@@ -131,6 +131,30 @@ def part_1c():
     print("{0:.2f}% accuracy".format(100 * float(good) / (good + bad)))
 
 
+def get_accuracy(ytrain, predicts):
+    """
+    Helper function for calculating the accuracy
+        ytrain (np.array): labels for datasets
+        predicts (np.array): predictions 
+    returns accuracy: accuracy of predictions (out of 100)
+    """
+    # Find which of these predictions match ytrain and report its accuracy
+    correct = 0
+    incorrect = 0
+    num_train = len(ytrain)
+    for i in range(num_train):
+        if ytrain[i] == predicts[i]:
+            correct += 1
+        else:
+            incorrect += 1
+    total = correct + incorrect
+    if total:
+        accuracy = correct / total * 100
+    else:
+        accuracy = 0
+    return accuracy
+
+
 def part_2a():
     y0 = 1
     y1 = 2
@@ -155,9 +179,8 @@ def part_2a():
 
     # Picking random numbers
     rand_y = np.random.choice([-1, 1], (len(ytrain)))
-    # TODO: find which of these labels match ytrain and report its accuracy
-    rand_accuracy = None
-    raise NotImplementedError
+    rand_accuracy = get_accuracy(ytrain, rand_y)
+
     print("(Random) Training accuracy: {0:.2f}%".format(rand_accuracy))
 
     # Using Weak Classifier
@@ -165,9 +188,9 @@ def part_2a():
     wk_clf = ps6.WeakClassifier(Xtrain, ytrain, uniform_weights)
     wk_clf.train()
     wk_results = [wk_clf.predict(x) for x in Xtrain]
-    # TODO: find which of these labels match ytrain and report its accuracy
-    wk_accuracy = None
-    raise NotImplementedError
+
+    # Find which of these labels match ytrain and report its accuracy
+    wk_accuracy = get_accuracy(ytrain, wk_results)
     print("(Weak) Training accuracy {0:.2f}%".format(wk_accuracy))
 
     num_iter = 5
@@ -180,22 +203,19 @@ def part_2a():
 
     # Picking random numbers
     rand_y = np.random.choice([-1, 1], (len(ytest)))
-    # TODO: find which of these labels match ytest and report its accuracy
-    rand_accuracy = None
-    raise NotImplementedError
+    # Find which of these labels match ytest and report its accuracy
+    rand_accuracy = get_accuracy(ytest, rand_y)
     print("(Random) Testing accuracy: {0:.2f}%".format(rand_accuracy))
 
     # Using Weak Classifier
     wk_results = [wk_clf.predict(x) for x in Xtest]
-    # TODO: find which of these labels match ytest and report its accuracy
-    wk_accuracy = None
-    raise NotImplementedError
+    # Find which of these labels match ytest and report its accuracy
+    wk_accuracy = get_accuracy(ytest, wk_results)
     print("(Weak) Testing accuracy {0:.2f}%".format(wk_accuracy))
 
     y_pred = boost.predict(Xtest)
-    # TODO: find which of these labels match ytest and report its accuracy
-    boost_accuracy = None
-    raise NotImplementedError
+    # Find which of these labels match ytest and report its accuracy
+    boost_accuracy = get_accuracy(ytest, y_pred)
     print("(Boosting) Testing accuracy {0:.2f}%".format(boost_accuracy))
 
 
@@ -267,7 +287,7 @@ def part_4_c():
 if __name__ == "__main__":
     # part_1a_1b()
     # part_1c()
-    # part_2a()
+    part_2a()
     # part_3a()
     # part_4_a_b()
     # part_4_c()

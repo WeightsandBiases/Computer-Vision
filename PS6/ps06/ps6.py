@@ -44,7 +44,7 @@ def load_images(folder, size=(32, 32)):
         # get image label
         label = img_file_path.split(TOK)[SUBJECT_IDX][LABEL_IDX:]
         y_labels.append(label)
-    return (np.array(x_flat_imgs), np.array(y_labels))
+    return (np.array(x_flat_imgs, dtype=np.uint8), np.array(y_labels, dtype=np.int8))
 
 
 def split_dataset(X, y, p):
@@ -120,7 +120,7 @@ def pca(X, k):
     """
 
     mu = get_mean_face(X)
-    
+
     # compute sigma using equation from lectures
     sigma = (X - mu).T @ (X - mu)
 
@@ -144,7 +144,7 @@ def pca(X, k):
     # filter out just the top k eigen values and vectors
     eigen_vals = eigen_vals[:k]
     eigen_vecs = eigen_vecs[:, :k]
-    
+
     return (eigen_vecs, eigen_vals)
 
 
@@ -175,6 +175,7 @@ class Boosting:
     def __init__(self, X, y, num_iterations):
         self.Xtrain = np.float32(X)
         self.ytrain = np.float32(y)
+        self.num_data = len(self.Xtrain)
         self.num_iterations = num_iterations
         self.weakClassifiers = []
         self.alphas = []
@@ -184,7 +185,39 @@ class Boosting:
 
     def train(self):
         """Implement the for loop shown in the problem set instructions."""
-        raise NotImplementedError
+        # for each training stage...
+        for i in range(self.num_iterations):
+            # a) Renormalize the weights so they sum up to one
+            self.weights /= np.sum(self.weights)
+
+            # b) Instantiate the weak classifier h with the training data and labels.
+            #    Train the classifier h
+            #    Get predictions h(x) for all training examples
+            wc = WeakClassifier(self.Xtrain, self.ytrain, self.weights)
+            wc.train()
+            h_X = list()
+            for X in self.Xtrain:
+                h_X.append(wc.predict(X))
+            self.weakClassifiers.append(wc)
+
+            # c) Find εj, summation of w_i where h(x_i) != y_i
+            epsilon = 0
+            for i in range(self.num_data):
+                if self.ytrain[i] != h_X[i]:
+                    epsilon += self.weights[i]
+
+            # d) Calculate α_j
+            alpha = 0.5 * np.log((1 - epsilon) / epsilon)
+            self.alphas.append(alpha)
+
+            # e) If ε is greater than a (typically small) threshold:
+            #    update the weights, otherwise stop the loop
+            if epsilon > self.eps:
+                for i in range(self.num_data):
+                    if self.ytrain[i] != h_X[i]:
+                        self.weights[i] *= np.exp(-self.ytrain[i] * alpha * h_X[i])
+            else:
+                break
 
     def evaluate(self):
         """Return the number of correct and incorrect predictions.
@@ -198,7 +231,15 @@ class Boosting:
                 correct (int): Number of correct predictions.
                 incorrect (int): Number of incorrect predictions.
         """
-        raise NotImplementedError
+        correct = 0
+        incorrect = 0
+        predicts = self.predict(self.Xtrain)
+        for i in range(self.num_data):
+            if self.ytrain[i] == predicts[i]:
+                correct += 1
+            else:
+                incorrect += 1
+        return (correct, incorrect)
 
     def predict(self, X):
         """Return predictions for a given array of observations.
@@ -212,7 +253,17 @@ class Boosting:
         Returns:
             numpy.array: Predictions, one for each row in X.
         """
-        raise NotImplementedError
+        predicts = list()
+
+        for i in range(len(X)):
+            H_x = 0
+            # predictions are a sum of all the weak classifiers
+            for wc_i in range(len(self.weakClassifiers)):
+                H_x += self.alphas[wc_i] * self.weakClassifiers[wc_i].predict(X[i])
+
+            # assign predictions based on sign of H_x
+            predicts.append(np.sign(H_x))
+        return np.array(predicts)
 
 
 class HaarFeature:
