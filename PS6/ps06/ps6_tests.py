@@ -172,11 +172,11 @@ class HaarFeature(unittest.TestCase):
 
             # Uncomment if you want to see the reference image
             # cv2.imshow("ref_img", ref_img.astype("uint8"))
-            # cv2.waitKey(0)
 
             hf = ps6.HaarFeature(feat_type, pos, size)
             hf_img = hf.preview((50, 50))
-
+            # cv2.imshow("hf_img", hf_img.astype("uint8"))
+            # cv2.waitKey(0)
             correct = np.allclose(hf_img, ref_img)
             message = "Output image does not match the reference solution."
             self.assertTrue(correct, message)

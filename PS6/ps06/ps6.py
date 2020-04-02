@@ -284,6 +284,9 @@ class HaarFeature:
         self.feat_type = feat_type
         self.position = position
         self.size = size
+        # colors
+        self.GRAY = 126
+        self.WHITE = 255
 
     def _create_two_horizontal_feature(self, shape):
         """Create a feature of type (2, 1).
@@ -296,8 +299,20 @@ class HaarFeature:
         Returns:
             numpy.array: Image containing a Haar feature. (uint8).
         """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # create a blank image
+        img = np.zeros(shape, dtype=np.uint8)
+        # dimension calculations
+        half_height = int(height / 2)
+        y_half = y_min + half_height
+        y_max = y_min + height
+        x_max = x_min + width
 
-        raise NotImplementedError
+        # render the feature
+        img[y_min:y_half, x_min:x_max] = self.WHITE
+        img[y_half:y_max, x_min:x_max] = self.GRAY
+        return img.astype(np.uint8)
 
     def _create_two_vertical_feature(self, shape):
         """Create a feature of type (1, 2).
@@ -310,8 +325,20 @@ class HaarFeature:
         Returns:
             numpy.array: Image containing a Haar feature. (uint8).
         """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # create a blank image
+        img = np.zeros(shape, dtype=np.uint8)
+        # dimension calculations
+        half_width = int(width / 2)
+        x_half = x_min + half_width
+        x_max = x_min + width
+        y_max = y_min + height
 
-        raise NotImplementedError
+        # render the feature
+        img[y_min:y_max, x_min:x_half] = self.WHITE
+        img[y_min:y_max, x_half:x_max] = self.GRAY
+        return img.astype(np.uint8)
 
     def _create_three_horizontal_feature(self, shape):
         """Create a feature of type (3, 1).
@@ -324,8 +351,24 @@ class HaarFeature:
         Returns:
             numpy.array: Image containing a Haar feature. (uint8).
         """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # create a blank image
+        img = np.zeros(shape, dtype=np.uint8)
+        # dimension calculations
+        one_third_height = int(height / 3)
 
-        raise NotImplementedError
+        y_one_third = y_min + one_third_height
+        y_two_third = y_min + one_third_height * 2
+
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # render the feature
+        img[y_min:y_one_third, x_min:x_max] = self.WHITE
+        img[y_one_third:y_two_third, x_min:x_max] = self.GRAY
+        img[y_two_third:y_max, x_min:x_max] = self.WHITE
+        return img.astype(np.uint8)
 
     def _create_three_vertical_feature(self, shape):
         """Create a feature of type (1, 3).
@@ -338,8 +381,23 @@ class HaarFeature:
         Returns:
             numpy.array: Image containing a Haar feature. (uint8).
         """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # create a blank image
+        img = np.zeros(shape, dtype=np.uint8)
+        # dimension calculations
+        one_third_width = int(width / 3)
 
-        raise NotImplementedError
+        x_one_third = x_min + one_third_width
+        x_two_third = x_min + 2 * one_third_width
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # render the feature
+        img[y_min:y_max, x_min:x_one_third] = self.WHITE
+        img[y_min:y_max, x_one_third:x_two_third] = self.GRAY
+        img[y_min:y_max, x_two_third:x_max] = self.WHITE
+        return img.astype(np.uint8)
 
     def _create_four_square_feature(self, shape):
         """Create a feature of type (2, 2).
@@ -353,7 +411,25 @@ class HaarFeature:
             numpy.array: Image containing a Haar feature. (uint8).
         """
 
-        raise NotImplementedError
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # create a blank image
+        img = np.zeros(shape, dtype=np.uint8)
+        # dimension calculations
+        half_width = int(width / 2)
+        half_height = int(height / 2)
+
+        x_half = x_min + half_width
+        y_half = y_min + half_height
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # render the feature
+        img[y_min:y_half, x_min:x_half] = self.GRAY
+        img[y_min:y_half, x_half:x_max] = self.WHITE
+        img[y_half:y_max, x_min:x_half] = self.WHITE
+        img[y_half:y_max, x_half:x_max] = self.GRAY
+        return img.astype(np.uint8)
 
     def preview(self, shape=(24, 24), filename=None):
         """Return an image with a Haar-like feature of a given type.
@@ -396,6 +472,201 @@ class HaarFeature:
 
         return X
 
+    def _get_score_two_horizontal_feature(self, ii):
+        """
+        Args:
+            ii (numpy.array): Integral Image.
+
+        Returns:
+           float: Score value.
+        """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # dimension calculations, subtract one because
+        # of integral image border
+        y_min -= 1
+        x_min -= 1
+        half_height = int(height / 2)
+        y_half = y_min + half_height
+        y_max = y_min + height
+        x_max = x_min + width
+
+        # calculate white and gray areas
+        A = ii[y_min][x_min]
+        B = ii[y_min][x_max]
+        C = ii[y_half][x_min]
+        D = ii[y_half][x_max]
+        white_area = A - B - C + D
+
+        A = ii[y_half][x_min]
+        B = ii[y_half][x_max]
+        C = ii[y_max][x_min]
+        D = ii[y_max][x_max]
+        grey_area = A - B - C + D
+
+        # add white area and subtract grey_area area
+        score = white_area - grey_area
+        return score
+
+    def _get_score_two_vertical_feature(self, ii):
+        """
+        Args:
+            ii (numpy.array): Integral Image.
+
+        Returns:
+           float: Score value.
+        """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # dimension calculations
+        y_min -= 1
+        x_min -= 1
+        half_width = int(width / 2)
+        x_half = x_min + half_width
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # calculate white and gray areas
+        A = ii[y_min][x_min]
+        B = ii[y_min][x_half]
+        C = ii[y_max][x_min]
+        D = ii[y_max][x_half]
+        white_area = A - B - C + D
+
+        A = ii[y_min][x_half]
+        B = ii[y_min][x_max]
+        C = ii[y_max][x_half]
+        D = ii[y_max][x_max]
+        grey_area = A - B - C + D
+
+        # add white area and subtract grey_area area
+        score = white_area - grey_area
+        return score
+
+    def _get_score_three_horizontal_feature(self, ii):
+        """
+        Args:
+            ii (numpy.array): Integral Image.
+
+        Returns:
+           float: Score value.
+        """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # dimension calculations
+        y_min -= 1
+        x_min -= 1
+        one_third_height = int(height / 3)
+
+        y_one_third = y_min + one_third_height
+        y_two_third = y_min + one_third_height * 2
+
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # calculate white and gray areas
+        A = ii[y_min][x_min]
+        B = ii[y_min][x_max]
+        C = ii[y_one_third][x_min]
+        D = ii[y_one_third][x_max]
+        white_area = A - B - C + D
+
+        A = ii[y_one_third][x_min]
+        B = ii[y_one_third][x_max]
+        C = ii[y_two_third][x_min]
+        D = ii[y_two_third][x_max]
+
+        grey_area = A - B - C + D
+
+        A = ii[y_two_third][x_min]
+        B = ii[y_two_third][x_max]
+        C = ii[y_max][x_min]
+        D = ii[y_max][x_max]
+
+        white_area += A - B - C + D
+
+        # add white area and subtract grey_area area
+        score = white_area - grey_area
+        return score
+
+    def _get_score_three_vertical_feature(self, ii):
+        """
+        Args:
+            ii (numpy.array): Integral Image.
+
+        Returns:
+           float: Score value.
+        """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # dimension calculations
+        y_min -= 1
+        x_min -= 1
+        one_third_width = int(width / 3)
+
+        x_one_third = x_min + one_third_width
+        x_two_third = x_min + 2 * one_third_width
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # calculate white and gray areas
+        A = ii[y_min][x_min]
+        B = ii[y_min][x_one_third]
+        C = ii[y_max][x_min]
+        D = ii[y_max][x_one_third]
+
+        white_area = A - B - C + D
+
+        A = ii[y_min][x_one_third]
+        B = ii[y_min][x_two_third]
+        C = ii[y_max][x_one_third]
+        D = ii[y_max][x_two_third]
+
+        grey_area = A - B - C + D
+
+        A = ii[y_min][x_two_third]
+        B = ii[y_min][x_max]
+        C = ii[y_max][x_two_third]
+        D = ii[y_max][x_max]
+
+        white_area += A - B - C + D
+
+        # add white area and subtract grey_area area
+        score = white_area - grey_area
+        return score
+
+    def _get_score_four_square_feature(self, ii):
+        """
+        Args:
+            ii (numpy.array): Integral Image.
+
+        Returns:
+           float: Score value.
+        """
+        height, width = self.size[:2]
+        y_min, x_min = self.position[:2]
+        # dimension calculations
+        y_min -= 1
+        x_min -= 1
+        half_width = int(width / 2)
+        half_height = int(height / 2)
+
+        x_half = x_min + half_width
+        y_half = y_min + half_height
+        x_max = x_min + width
+        y_max = y_min + height
+
+        # calculate white and gray areas
+        A = ii[y_min][x_min]
+        B = ii[y_min][x_half]
+        C = ii[y_half][x_min]
+        D = ii[y_half][x_half]
+
+        grey_area = A - B - C + D
+
+        # TODO finish!
+
+
     def evaluate(self, ii):
         """Evaluates a feature's score on a given integral image.
 
@@ -417,8 +688,22 @@ class HaarFeature:
         Returns:
             float: Score value.
         """
+        ii = ii.astype(np.float32)
 
-        raise NotImplementedError
+        # two horizontal feature
+        if self.feat_type == (2, 1):
+            return self._get_score_two_horizontal_feature(ii)
+        # two vertical feature
+        elif self.feat_type == (1, 2):
+            return self._get_score_two_vertical_feature(ii)
+        # three horizontal feature
+        elif self.feat_type == (3, 1):
+            return self._get_score_three_horizontal_feature(ii)
+        # three vertical feature
+        elif self.feat_type == (1, 3):
+            return self._get_score_two_horizontal_feature(ii)
+        else:
+            raise NotImplementedError
 
 
 def convert_images_to_integral_images(images):
@@ -430,8 +715,14 @@ def convert_images_to_integral_images(images):
     Returns:
         (list): List of integral images.
     """
+    integral_imgs = list()
 
-    raise NotImplementedError
+    for img in images:
+        # sum over the rows and columns
+        integral_img = np.cumsum(np.cumsum(img, axis=0), axis=1)
+        integral_imgs.append(integral_img)
+
+    return integral_imgs
 
 
 class ViolaJones:
