@@ -664,7 +664,30 @@ class HaarFeature:
 
         grey_area = A - B - C + D
 
-        # TODO finish!
+        A = ii[y_min][x_half]
+        B = ii[y_min][x_max]
+        C = ii[y_half][x_half]
+        D = ii[y_half][x_max]
+
+        white_area = A - B - C + D
+
+        A = ii[y_half][x_min]
+        B = ii[y_half][x_half]
+        C = ii[y_max][x_min]
+        D = ii[y_max][x_half]
+
+        white_area += A - B - C + D
+
+        A = ii[y_half][x_half]
+        B = ii[y_half][x_max]
+        C = ii[y_max][x_half]
+        D = ii[y_max][x_max]
+
+        grey_area += A - B - C + D
+
+        # add white area and subtract grey_area area
+        score = white_area - grey_area
+        return score
 
 
     def evaluate(self, ii):
@@ -689,7 +712,6 @@ class HaarFeature:
             float: Score value.
         """
         ii = ii.astype(np.float32)
-
         # two horizontal feature
         if self.feat_type == (2, 1):
             return self._get_score_two_horizontal_feature(ii)
@@ -701,7 +723,9 @@ class HaarFeature:
             return self._get_score_three_horizontal_feature(ii)
         # three vertical feature
         elif self.feat_type == (1, 3):
-            return self._get_score_two_horizontal_feature(ii)
+            return self._get_score_three_vertical_feature(ii)
+        elif self.feat_type == (2, 2):
+            return self._get_score_four_square_feature(ii)
         else:
             raise NotImplementedError
 
