@@ -468,6 +468,7 @@ class HaarFeature:
             cv2.imwrite("output/{}_feature.png".format(self.feat_type), X)
 
         else:
+            print("executed")
             cv2.imwrite("output/{}.png".format(filename), X)
 
         return X
@@ -689,7 +690,6 @@ class HaarFeature:
         score = white_area - grey_area
         return score
 
-
     def evaluate(self, ii):
         """Evaluates a feature's score on a given integral image.
 
@@ -775,6 +775,7 @@ class ViolaJones:
         self.posImages = pos
         self.negImages = neg
         self.labels = np.hstack((np.ones(len(pos)), -1 * np.ones(len(neg))))
+        self.OUTPUT_DIR = "output"
 
     def createHaarFeatures(self):
         # Let's take detector resolution of 24x24 like in the paper
@@ -823,9 +824,32 @@ class ViolaJones:
         print(" -- select classifiers --")
         for i in range(num_classifiers):
 
-            # TODO: Complete the Viola Jones algorithm
+            # 1) Normalize the weights
+            weights = weights / np.sum(weights)
+            # 2) Instantiate and train a classifier using the VJ_Classifier
+            #    class.
+            #    For each feature, j, obtain the error evaluated with respect
+            #    to wt:
+            #    Find εj, summation of w_i where h(x_i) != y_i
+            vjc = VJ_Classifier(scores, self.labels, weights)
+            vjc.train()
+            # 3) Append hj to the self.classifiers attribute
+            self.classifiers.append(vjc)
+            # 4) Update weights beta_t = 1 / ( 1 - epislon_t)
+            #    e_i negative if h_t(x_i) == yi
+            #    e_i positive otherwise
+            beta = vjc.error / (1 - vjc.error)
+            for j in range(len(self.integralImages)):
+                prediction = vjc.predict(scores[j])
+                if self.labels[j] == prediction:
+                    e_i = 0
+                else:
+                    e_i = 1
+                weights[j] *= beta ** (1 - e_i)
 
-            raise NotImplementedError
+            # 5) Calculate α_t and append it to self.alphas
+            alpha = np.log(1 / beta)
+            self.alphas.append(alpha)
 
     def predict(self, images):
         """Return predictions for a given list of images.
@@ -844,22 +868,36 @@ class ViolaJones:
         # Populate the score location for each classifier 'clf' in
         # self.classifiers.
 
-        # Obtain the Haar feature id from clf.feature
+        for vjc in self.classifiers:
+            # Obtain the Haar feature id from clf.feature
+            haar_feat_id = vjc.feature
 
-        # Use this id to select the respective feature object from
-        # self.haarFeatures
+            # Use this id to select the respective feature object from
+            # self.haarFeatures
+            haar_feat = self.haarFeatures[haar_feat_id]
 
-        # Add the score value to score[x, feature id] calling the feature's
-        # evaluate function. 'x' is each image in 'ii'
+            # Add the score value to score[x, feature id] calling the feature's
+            # evaluate function. 'x' is each image in 'ii'
+            for ii_idx, iimg in enumerate(ii):
+                scores[ii_idx, haar_feat_id] = haar_feat.evaluate(iimg)
 
         result = []
 
         # Append the results for each row in 'scores'. This value is obtained
         # using the equation for the strong classifier H(x).
+        thresh = 0.5 * np.sum(self.alphas)
 
         for x in scores:
-            # TODO
-            raise NotImplementedError
+            H_x = 0
+            # predictions are a sum of all the viola-jones classifiers
+            for vjc_i in range(len(self.classifiers)):
+                H_x += self.alphas[vjc_i] * self.classifiers[vjc_i].predict(x)
+
+            # assign predictions based on H_x
+            if H_x >= thresh:
+                result.append(1)
+            else:
+                result.append(-1)
 
         return result
 
@@ -878,5 +916,46 @@ class ViolaJones:
         Returns:
             None.
         """
-
-        raise NotImplementedError
+        # get shapes
+        window_w = 26
+        window_h = 26
+        img_h, img_w = image.shape[:2]
+        # convert image to grayscale
+        image = np.copy(image)
+        image_grey = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        # calculate endpoints
+        end_h = img_h - window_h
+        end_w = img_w - window_w
+        # get the windows and their corner coordinates
+        windows = list()
+        corners = list()
+        for y_min in range(end_h):
+            for x_min in range(end_w):
+                y_max = y_min + window_h
+                x_max = x_min + window_w
+                window = image_grey[y_min:y_max, x_min:x_max]
+                windows.append(window)
+                corners.append((y_min, x_min))
+        # create predictions from windows
+        predicts = self.predict(windows)
+        # get corners of positive predictions
+        pos_pred_corns = list()
+        for i in range(len(predicts)):
+            if predicts[i] == 1:
+                pos_pred_corns.append(corners[i])
+        # find the mean of the positive prediction corners
+        pos_pred_corns = np.array(pos_pred_corns)
+        mean_pos_pred_corns = tuple(np.mean(pos_pred_corns, axis=0).astype(np.int))
+        # label the image
+        COLOR = (255, 0, 0)
+        THICKNESS = 1
+        y, x = mean_pos_pred_corns
+        cv2.rectangle(
+            image,
+            (x, y),
+            (x + window_w, y + window_h),
+            COLOR,
+            THICKNESS,
+        )
+        # write output to a file
+        cv2.imwrite(os.path.join(self.OUTPUT_DIR, filename), image)
