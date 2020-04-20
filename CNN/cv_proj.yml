@@ -1,0 +1,14 @@
+name: cv_proj
+channels:
+  - anaconda
+  - defaults
+dependencies:
+  - h5py=2.9.0
+  - python=3.6.7
+  - setuptools=40.0.0
+  - tensorflow-gpu=2.1.0
+  - cython=0.29
+  - pip:
+    - scikit-learn==0.20.0
+    - opencv-python==3.4.3.18
+
