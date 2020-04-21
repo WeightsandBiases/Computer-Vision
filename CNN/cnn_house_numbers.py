@@ -3,6 +3,7 @@ import cv2
 import h5py
 import numpy as np
 import tensorflow as tf
+import logging as log
 from scipy.io import loadmat
 from sklearn.preprocessing import OneHotEncoder
 
@@ -16,20 +17,29 @@ class CNNHouseNumbers(object):
 
     def __init__(
         self,
-        img_dir_path="",
-        output_dir_path="",
+        n_labels=10,
+        img_dir="",
+        output_dir="",
+        tf_log_dir="tf_logs",
         train_filename="train_32x32.mat",
         test_filename="test_32x32.mat",
         vald_filename="extra_32x32.mat",
     ):
         """
         Class constructor
-        Args: 
+        Args:
+            n_labels (int): total number of labels of the data
             img_dir_path (str): directory path for test and train images
+            output_dir (str): directory for the h5py preprocessed data
+            tf_log_dir (str): directory used to set up tf logging
             train_filename (str): file name for the training images
             test_filename(str): file name for the testing images
+            vald_filename(str): file name for the validation images
         """
-        self.img_dir_path = img_dir_path
+        self.n_labels = n_labels
+        self.img_dir = img_dir
+        self.output_dir = output_dir
+        self.tf_log_dir = tf_log_dir
         self.train_filename = train_filename
         self.test_filename = test_filename
         self.vald_filename = vald_filename
@@ -41,7 +51,7 @@ class CNNHouseNumbers(object):
             img_filename (str): file name of image
         Returns (tuple): a tuple of images (X) and their labels (y)
         """
-        labeled_imgs = loadmat(os.path.join(self.img_dir_path, img_filename))
+        labeled_imgs = loadmat(os.path.join(self.img_dir, img_filename))
         return (labeled_imgs["X"], labeled_imgs["y"])
 
     def convert_imgs_to_gray(self, imgs):
@@ -54,7 +64,10 @@ class CNNHouseNumbers(object):
         """
         gray_imgs = list()
         for img in imgs:
-            gray_imgs.append(cv2.cvtColor(img, cv2.COLOR_BGR2GRAY))
+            # convert to gray but keep the channel for tensorflow processing
+            # https://stackoverflow.com/questions/41010675/how-can-i-adjust-the-cvtcolor-grayscale-function-so-that-it-keeps-a-dimension-fo
+            gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)[:, :, np.newaxis]
+            gray_imgs.append(gray_img)
         return np.asarray(gray_imgs)
 
     def mean_subtraction(self, imgs):
@@ -118,7 +131,9 @@ class CNNHouseNumbers(object):
         encoded_labels = OneHotEncoder(sparse=False).fit_transform(labels)
         return encoded_labels
 
-    def preprocess(self, save_preprocess=True, filename="CNN_PreProc_Dataset.h5"):
+    def preprocess(
+        self, save_preprocess=True, pre_process_filename="CNN_PreProc_Dataset.h5"
+    ):
         """
         preprocess the data
         Args: 
@@ -128,6 +143,7 @@ class CNNHouseNumbers(object):
                             be saved under the following filename
                             in h5py format
         """
+        log.info('preprocessing data')
         X_train, y_train = self.load_mat_imgs(self.train_filename)
         X_test, y_test = self.load_mat_imgs(self.test_filename)
         X_vald, y_vald = self.load_mat_imgs(self.vald_filename)
@@ -156,7 +172,8 @@ class CNNHouseNumbers(object):
         # option to save the preprocessed data
         if save_preprocess:
             # save preprocessed data in h5py format
-            with h5py.File(filename, "w") as h5fd:
+            file_path = os.path.join(self.output_dir, pre_process_filename)
+            with h5py.File(file_path, "w") as h5fd:
                 h5fd.create_dataset("X_train", data=X_train)
                 h5fd.create_dataset("y_train", data=y_train)
                 h5fd.create_dataset("X_test", data=X_test)
@@ -172,14 +189,15 @@ class CNNHouseNumbers(object):
             self.X_vald = X_vald
             self.y_vald = y_vald
 
-    def load_pre_processed_files(filepath):
+    def load_pre_processed_files(self, pre_process_filename="CNN_PreProc_Dataset.h5"):
         """
         load the pre processed data stored in h5py format
         Args:
-            filepath(str): path of the file that is being used to store
+            filename(str): path of the file that is being used to store
             pre processed data
         """
-        with h5py.File(filename, "r") as h5fd:
+        file_path = os.path.join(self.output_dir, pre_process_filename)
+        with h5py.File(file_path, "r") as h5fd:
             self.X_train = h5fd["X_train"][:]
             self.y_train = h5fd["y_train"][:]
             self.X_test = h5fd["X_test"][:]
@@ -187,5 +205,82 @@ class CNNHouseNumbers(object):
             self.X_vald = h5fd["X_vald"][:]
             self.y_vald = h5fd["y_vald"][:]
 
-    def create_cnn(self, load):
-        raise NotImplementedError
+    def check_gpu(self):
+        print(tf.config.list_physical_devices("GPU"))
+
+    def init_tf_logs(self):
+        """
+        set up log files for tensorboard
+        """
+        self.LOG_LEVEL = 2
+        if tf.io.gfile.exists(self.tf_log_dir):
+            tf.io.gfile.rmtree(self.tf_log_dir)
+        tf.io.gfile.mkdir(self.tf_log_dir)
+        tf.autograph.set_verbosity(self.LOG_LEVEL)
+
+    def init_placeholders(self):
+        """
+        create placeholders for features and label space
+        """
+        self.input_layer = tf.Variable(tf.ones(shape=[1, 32, 32, 1]), dtype=tf.float32)
+        self.labels = tf.Variable(tf.ones(shape=[1, 10]), dtype=tf.float32)
+        self.dropout = 0.1
+
+    def init_cnn(self):
+        """
+        initializes the convolutional neural network
+        """
+        # self.check_gpu()
+        self.init_tf_logs()
+        self.init_placeholders()
+
+    def run_cnn(self, filters=(32, 64, 64), k_size=3):
+        """
+        a convolutional neural network that has one input layer,
+        two convolutional layers, and one fully connected layer.
+        At each convolutional/hidden layer, a convolution, ReLu, and max pool are performed.
+        References:
+        https://blog.xrds.acm.org/2016/06/convolutional-neural-networks-cnns-illustrated-explanation/
+        https://www.tensorflow.org/tutorials/images/cnn
+        https://www.tensorflow.org/guide/migrate
+        """
+        # build the CNN model with two convolutional layers, a dropout layer, a dense layer
+        # a batch normalization layer, and the last dense layer that acts as our fully connected
+        # layer
+        cnn_model = tf.keras.Sequential(
+            [
+                tf.keras.layers.Conv2D(
+                    filters[0], k_size, activation="relu", input_shape=(32, 32, 1)
+                ),
+                tf.keras.layers.MaxPooling2D(),
+                tf.keras.layers.Conv2D(filters[1], k_size, activation="relu"),
+                tf.keras.layers.MaxPooling2D(),
+                tf.keras.layers.Conv2D(filters[2], k_size, activation="relu"),
+                tf.keras.layers.Flatten(),
+                tf.keras.layers.Dropout(self.dropout),
+                tf.keras.layers.Dense(64, activation="relu"),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.Dense(self.n_labels),
+            ]
+        )
+
+        cnn_model.summary()
+        cnn_model.compile(
+            optimizer="adam",
+            loss=tf.keras.losses.CategoricalCrossentropy(from_logits=True),
+            metrics=["accuracy"],
+        )
+
+        history = cnn_model.fit(
+            self.X_train,
+            self.y_train,
+            epochs=10,
+            validation_data=(self.X_test, self.y_test),
+        )
+
+        test_loss, test_acc = cnn_model.evaluate(
+            self.X_test, self.y_test, verbose=self.LOG_LEVEL
+        )
+
+        print(test_loss)
+        print(test_acc)
