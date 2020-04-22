@@ -43,6 +43,22 @@ class CNNHouseNumbers(object):
         self.train_filename = train_filename
         self.test_filename = test_filename
         self.vald_filename = vald_filename
+        self.init_class_logs()
+
+    def init_class_logs(self):
+        """
+        initialize in class logging
+        https://docs.python.org/3.1/library/logging.html
+        """
+        self.log = log.getLogger("CNNHouseNumbers")
+        self.log.setLevel(log.INFO)
+        ch = log.StreamHandler()
+        ch.setLevel(log.INFO)
+        formatter = log.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        ch.setFormatter(formatter)
+        self.log.addHandler(ch)
 
     def load_mat_imgs(self, img_filename):
         """
@@ -143,7 +159,7 @@ class CNNHouseNumbers(object):
                             be saved under the following filename
                             in h5py format
         """
-        log.info('preprocessing data')
+        self.log.info("preprocessing image data")
         X_train, y_train = self.load_mat_imgs(self.train_filename)
         X_test, y_test = self.load_mat_imgs(self.test_filename)
         X_vald, y_vald = self.load_mat_imgs(self.vald_filename)
@@ -155,22 +171,27 @@ class CNNHouseNumbers(object):
         X_test = np.transpose(X_test, ORDER)
         X_vald = np.transpose(X_vald, ORDER)
         # convert to grayscale
+        self.log.info("converting images to grayscale")
         X_train = self.convert_imgs_to_gray(X_train)
         X_test = self.convert_imgs_to_gray(X_test)
         X_vald = self.convert_imgs_to_gray(X_vald)
         # preprocess data using common data processing techniques
+        self.log.info("applying image mean substraction")
         X_train = self.mean_subtraction(X_train)
         X_test = self.mean_subtraction(X_test)
         X_vald = self.mean_subtraction(X_vald)
+        self.log.info("applying image data normalization")
         X_train = self.data_normalization(X_train)
         X_test = self.data_normalization(X_test)
         X_vald = self.data_normalization(X_vald)
         # one hot encode labels
+        self.log.info("one hot encoding labels")
         y_train = self.one_hot_enc_labels(y_train)
         y_test = self.one_hot_enc_labels(y_test)
         y_vald = self.one_hot_enc_labels(y_vald)
         # option to save the preprocessed data
         if save_preprocess:
+            self.log.info("saving preproccessed data")
             # save preprocessed data in h5py format
             file_path = os.path.join(self.output_dir, pre_process_filename)
             with h5py.File(file_path, "w") as h5fd:
@@ -188,6 +209,7 @@ class CNNHouseNumbers(object):
             self.y_test = y_test
             self.X_vald = X_vald
             self.y_vald = y_vald
+        self.log.info("preprocess complete")
 
     def load_pre_processed_files(self, pre_process_filename="CNN_PreProc_Dataset.h5"):
         """
@@ -196,6 +218,7 @@ class CNNHouseNumbers(object):
             filename(str): path of the file that is being used to store
             pre processed data
         """
+        self.log.info("loading preproccessed data")
         file_path = os.path.join(self.output_dir, pre_process_filename)
         with h5py.File(file_path, "r") as h5fd:
             self.X_train = h5fd["X_train"][:]
@@ -234,15 +257,22 @@ class CNNHouseNumbers(object):
         self.init_tf_logs()
         self.init_placeholders()
 
-    def run_cnn(self, filters=(32, 64, 64), k_size=3):
+    def train_cnn(
+        self,
+        filters=(32, 64, 64),
+        k_size=3,
+        save_model=True,
+        model_filename="CNNHouseNumbersModel.h5",
+    ):
         """
         a convolutional neural network that has one input layer,
         two convolutional layers, and one fully connected layer.
         At each convolutional/hidden layer, a convolution, ReLu, and max pool are performed.
         References:
         https://blog.xrds.acm.org/2016/06/convolutional-neural-networks-cnns-illustrated-explanation/
-        https://www.tensorflow.org/tutorials/images/cnn
         https://www.tensorflow.org/guide/migrate
+        https://www.tensorflow.org/tutorials/images/cnn
+        https://www.tensorflow.org/tutorials/quickstart/advanced
         """
         # build the CNN model with two convolutional layers, a dropout layer, a dense layer
         # a batch normalization layer, and the last dense layer that acts as our fully connected
@@ -282,5 +312,6 @@ class CNNHouseNumbers(object):
             self.X_test, self.y_test, verbose=self.LOG_LEVEL
         )
 
-        print(test_loss)
-        print(test_acc)
+        if save_model:
+            # save the model in h5py format
+            cnn_model.save(os.path.join(self.output_dir, model_filename))

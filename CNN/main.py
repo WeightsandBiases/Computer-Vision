@@ -1,5 +1,7 @@
 from cnn_house_numbers import CNNHouseNumbers
 
+def detect_numbers()
+
 if __name__ == "__main__":
     # specify input and output directories
     IMG_DIR = ""
@@ -8,4 +10,4 @@ if __name__ == "__main__":
     cnn.preprocess(save_preprocess=True)
     cnn.load_pre_processed_files()
     cnn.init_cnn()
-    cnn.run_cnn()
+    cnn.train_cnn(save_model=True)
