@@ -11,5 +11,5 @@ if __name__ == "__main__":
     # cnn.init_cnn()
     # cnn.train_cnn(save_model=True)
     hnd = HouseNumberDetector()
-    hnd.read_imgs(input_dir='input_images')
+    hnd.read_imgs(input_dir="input_images")
     hnd.detect_numbers()
