@@ -88,7 +88,7 @@ class HouseNumberDetector(object):
             self.images_color.append(img_color)
 
     def get_mser_regions(
-        self, img, min_area=15, max_area=250, delta=20, min_diversity=10000, visualize=True
+        self, img, min_area=20, max_area=275, delta=18, min_diversity=10000, visualize=False
     ):
         """
         find regions in images where the is likely to be a number
@@ -117,9 +117,11 @@ class HouseNumberDetector(object):
         for p in regions:
             x_max, y_max = np.amax(p, axis=0)
             x_min, y_min = np.amin(p, axis=0)
-            # add bounding boxes in a dictionary hashmap
-            bb = {"x_max": x_max, "x_min": x_min, "y_min": y_min, "y_max": y_max}
-            bounding_boxes.append(bb)
+            # check bounds
+            if x_min != x_max and y_min != y_max and x_min > 0 and y_min > 0:
+                # add bounding boxes in a dictionary hashmap
+                bb = {"x_max": x_max, "x_min": x_min, "y_min": y_min, "y_max": y_max}
+                bounding_boxes.append(bb)
             # flag for visualizing the MSER regions
             if visualize:
                 img = img.copy()
@@ -163,11 +165,17 @@ class HouseNumberDetector(object):
             region_2(dict): dictionary of x and y min max coordinates
         Returns (int): an averaged region
         """
+        print("REGION ONE AND TWO")
+        print(region_1)
+        print(region_2)
         for key in region_1.keys():
             region_1[key] = int(np.average((region_1[key], region_2[key])))
+        print(region_1)
         return region_1
 
-    def non_max_supression(self, regions, area_threshold=2300):
+    def get_cnn_pred(self, img)
+
+    def non_max_supression(self, regions, area_threshold=2300, visualize=False, img=None):
         """
         Non Maximum Supression Malisiewicz et al.
         References:
@@ -177,6 +185,7 @@ class HouseNumberDetector(object):
             area_threshold: threshold for non max supression, larger values yields
                             more results
         """
+        print(regions)
         for i in range(len(regions) - 1):
             for j in range(1, len(regions)):
                 # boundary checking because deleting regions list
@@ -189,6 +198,23 @@ class HouseNumberDetector(object):
                     # get the average of two regions and preserve that value
                     regions[i] = self.get_average_regions(region_1, region_2)
                     del regions[j]
+                    # flag for visualizing the MSER regions
+        if visualize:
+            for region in regions:
+                img = img.copy()
+                COLOR = 0
+                cv2.rectangle(
+                    img,
+                    (region["x_min"], region["y_max"]),
+                    (region["x_max"], region["y_min"]),
+                    (COLOR, COLOR, COLOR),
+                    1,
+                )
+                cv2.imshow("img", img)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+        print("AFTER")
+        print(regions)
         return regions
 
     def get_img_pyramid(
@@ -210,6 +236,7 @@ class HouseNumberDetector(object):
         returns (list): list of dictionaries of the rescaled bounding boxes
         """
         scaled_regions = list()
+        img_h, img_w = img.shape[:2]
         for i in range(len(h_scales)):
             scaled_region = dict()
             # width calculations
@@ -218,13 +245,19 @@ class HouseNumberDetector(object):
             # so width is set equal to height
             width = height
             width *= w_scales[i]
-            scaled_region.update({"x_max": int(region["x_max"] + width / 2)})
-            scaled_region.update({"x_min": int(region["x_min"] - width / 2)})
-            # height calculations
             height *= h_scales[i]
-            scaled_region.update({"y_max": int(region["y_max"] + height // 2)})
-            scaled_region.update({"y_min": int(region["y_min"] - height // 2)})
-            scaled_regions.append(scaled_region)
+
+            x_min = int(region["x_min"] - width / 2)
+            x_max = int(region["x_max"] + width / 2)
+            y_min = int(region["y_min"] - height / 2)
+            y_max = int(region["y_max"] + height / 2)
+            # check bounds
+            if x_min > 0 and y_min > 0 and x_max < img_w and y_max < img_h:
+                scaled_region.update({"x_max": x_max})
+                scaled_region.update({"x_min": x_min})
+                scaled_region.update({"y_max": y_max})
+                scaled_region.update({"y_min": y_min})
+                scaled_regions.append(scaled_region)
             # flag for visualizing the MSER regions
             if visualize:
                 img = img.copy()
@@ -254,7 +287,7 @@ class HouseNumberDetector(object):
         else:
             return column_idx + 1
 
-    def get_best_pred(self, img, regions, visualize=False, threshold=150):
+    def get_best_pred(self, img, regions, threshold=180, visualize=False):
         """
         perform non maximal supression to choose the best region
         of prediction
@@ -277,22 +310,22 @@ class HouseNumberDetector(object):
             # image is now 32, 32, 1, 1. Reorder to 1, 32, 32, 1.
             ORDER = (3, 0, 1, 2)
             img_pred = np.transpose(img_pred, ORDER)
+            cnn_preds.append(self.cnn.predict(img_pred).flatten())
             if visualize:
                 cv2.imshow("img_pred", img_pred)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
-            cnn_preds.append(self.cnn.predict(img_pred).flatten())
 
-        # convert predictions of all regions to a 2D array
-        cnn_preds = np.asarray(cnn_preds)
-        # find row and column of highest confidence
-        col_max = np.argmax(np.max(cnn_preds, axis=0))
-        row_max = np.argmax(np.max(cnn_preds, axis=1))
-        # if bigger than predicted threshold
-        if cnn_preds[row_max, col_max] > threshold:
-            return (self.get_label_from_onehot(col_max), regions[row_max])
-        else:
-            return None
+        if cnn_preds:
+            # convert predictions of all regions to a 2D array
+            cnn_preds = np.asarray(cnn_preds)
+            # find row and column of highest confidence
+            col_max = np.argmax(np.max(cnn_preds, axis=0))
+            row_max = np.argmax(np.max(cnn_preds, axis=1))
+            # if bigger than predicted threshold
+            if cnn_preds[row_max, col_max] > threshold:
+                return (self.get_label_from_onehot(col_max), regions[row_max])
+        return None
 
     def label_pred_image(self, image, pred, pred_region):
         """
@@ -329,7 +362,7 @@ class HouseNumberDetector(object):
     def detect_numbers(self):
         for idx, img in enumerate(self.images):
             regions = self.get_mser_regions(img)
-            regions = self.non_max_supression(regions)
+            regions = self.non_max_supression(regions, img=img)
             for region in regions:
                 scaled_regions = self.get_img_pyramid(img, region)
                 pred_result = self.get_best_pred(img, scaled_regions)
