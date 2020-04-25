@@ -1,2 +1,6 @@
 *.h5
 *.mat
+*.png
+*.jpg
+*.jpeg
+*.pyc

@@ -8,13 +8,37 @@ import logging as log
 
 class HouseNumberDetector(object):
     def __init__(
-        self, input_dir="", tf_model_dir="", model_filename="CNNHouseNumbersModel.h5"
+        self,
+        input_dir="",
+        output_dir="",
+        tf_model_dir="",
+        model_filename="CNNHouseNumbersModel.h5",
     ):
         """class constructor of house number detector"""
         self.images = list()
+        self.images_color = list()
+        self.input_dir = input_dir
+        self.output_dir = output_dir
+        self.init_class_logs()
+        self.log.info("loading CNN House Numbers model")
         self.cnn = tf.keras.models.load_model(
             os.path.join(tf_model_dir, model_filename)
         )
+
+    def init_class_logs(self):
+        """
+        initialize in class logging
+        https://docs.python.org/3.1/library/logging.html
+        """
+        self.log = log.getLogger("CNNHouseNumbers")
+        self.log.setLevel(log.INFO)
+        ch = log.StreamHandler()
+        ch.setLevel(log.INFO)
+        formatter = log.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        ch.setFormatter(formatter)
+        self.log.addHandler(ch)
 
     def denoise_img(self, img):
         """
@@ -28,7 +52,7 @@ class HouseNumberDetector(object):
         # Parameter regulating filter strength for luminance component.
         # Bigger h value perfectly removes noise but also removes image details,
         # smaller h value preserves details but also preserves some noise
-        H = 25
+        H = 22
         # Size in pixels of the template patch that is used to compute weights.
         # Should be odd. Recommended value 7 pixels
         TEMPLATE_WINDOW_SIZE = 7
@@ -54,14 +78,17 @@ class HouseNumberDetector(object):
                 os.path.join(input_dir, img_file_path), cv2.IMREAD_GRAYSCALE
             )
 
+            img_color = cv2.imread(os.path.join(input_dir, img_file_path))
+
             # denoise image if flag is set to true
             if denoise:
                 img = self.denoise_img(img)
 
             self.images.append(img)
+            self.images_color.append(img_color)
 
     def get_mser_regions(
-        self, img, min_area=15, max_area=75, delta=20, min_diversity=10000,
+        self, img, min_area=15, max_area=250, delta=20, min_diversity=10000, visualize=True
     ):
         """
         find regions in images where the is likely to be a number
@@ -91,18 +118,85 @@ class HouseNumberDetector(object):
             x_max, y_max = np.amax(p, axis=0)
             x_min, y_min = np.amin(p, axis=0)
             # add bounding boxes in a dictionary hashmap
-            bounding_boxes.append(
-                {"x_max": x_max, "x_min": x_min, "y_min": y_min, "y_max": y_max}
-            )
+            bb = {"x_max": x_max, "x_min": x_min, "y_min": y_min, "y_max": y_max}
+            bounding_boxes.append(bb)
+            # flag for visualizing the MSER regions
+            if visualize:
+                img = img.copy()
+                COLOR = 0
+                cv2.rectangle(
+                    img,
+                    (bb["x_min"], bb["y_max"]),
+                    (bb["x_max"], bb["y_min"]),
+                    (COLOR, COLOR, COLOR),
+                    1,
+                )
+                cv2.imshow("img", img)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
 
         return bounding_boxes
+
+    def get_overlapping_area(self, region_1, region_2):
+        """
+        calculates overlapping area of two regions
+        Args: 
+            region_1(dict): dictionary of x and y min max coordinates
+            region_2(dict): dictionary of x and y min max coordinates
+        Returns (int): overlapping area
+        References:
+        https://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
+        """
+        overlap_x_min = np.max((region_1["x_min"], region_2["x_min"]))
+        overlap_x_max = np.min((region_1["x_max"], region_2["x_max"]))
+        overlap_y_min = np.max((region_1["y_min"], region_2["y_min"]))
+        overlap_y_max = np.min((region_1["y_max"], region_2["y_max"]))
+        overlap_width = np.min((0, overlap_x_max - overlap_x_min))
+        overlap_height = np.min((0, overlap_y_max - overlap_y_min))
+        return overlap_width * overlap_height
+
+    def get_average_regions(self, region_1, region_2):
+        """
+        averages the minimum and maximum values of two regions
+        Args: 
+            region_1(dict): dictionary of x and y min max coordinates
+            region_2(dict): dictionary of x and y min max coordinates
+        Returns (int): an averaged region
+        """
+        for key in region_1.keys():
+            region_1[key] = int(np.average((region_1[key], region_2[key])))
+        return region_1
+
+    def non_max_supression(self, regions, area_threshold=2300):
+        """
+        Non Maximum Supression Malisiewicz et al.
+        References:
+        https://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
+        Args:
+            regions(list): list of dictionary of bounding box coordinates
+            area_threshold: threshold for non max supression, larger values yields
+                            more results
+        """
+        for i in range(len(regions) - 1):
+            for j in range(1, len(regions)):
+                # boundary checking because deleting regions list
+                if i >= len(regions) or j >= len(regions):
+                    break
+                region_1 = regions[i]
+                region_2 = regions[j]
+                # if areas are overlapped too much
+                if self.get_overlapping_area(region_1, region_2) > area_threshold:
+                    # get the average of two regions and preserve that value
+                    regions[i] = self.get_average_regions(region_1, region_2)
+                    del regions[j]
+        return regions
 
     def get_img_pyramid(
         self,
         img,
         region,
-        w_scales=[1.6, 1.4, 1.2, 1.0, 0.8, 0.6],
-        h_scales=[1.4, 1.2, 1.0, 0.8, 0.6, 0.4],
+        w_scales=(1.6, 1.4, 1.2, 1.0, 0.8, 0.6),
+        h_scales=(1.4, 1.2, 1.0, 0.8, 0.6, 0.4),
         visualize=False,
     ):
         """
@@ -148,12 +242,32 @@ class HouseNumberDetector(object):
 
         return scaled_regions
 
-    def get_best_pred(self, img, regions, visualize=False):
+    def get_label_from_onehot(self, column_idx):
+        """
+        translate one hot encoded matrix to a 0-9 label
+        Args: 
+            column_idx(int): column index one hot encoded predictions
+        Returns(int): image label 0 - 9
+        """
+        if column_idx >= 10:
+            return 0
+        else:
+            return column_idx + 1
+
+    def get_best_pred(self, img, regions, visualize=False, threshold=150):
         """
         perform non maximal supression to choose the best region
         of prediction
+        Args:
+            img (np.array): numpy image
+            regions (list): list of dictionaries of bounding box coordinates
+            threshold (float): threshold of a positive categorization
+                               if threshold is not met, we do not predict a 
+                               number
+            visualize (bool): flag for displaying the image within bounding boxes
+
         """
-        img_pred = np.array([])
+        cnn_preds = list()
         for region in regions:
             img_pred = img[
                 region["y_min"] : region["y_max"], region["x_min"] : region["x_max"]
@@ -167,12 +281,61 @@ class HouseNumberDetector(object):
                 cv2.imshow("img_pred", img_pred)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
-            
-            print(self.cnn.predict(img_pred))
-        print("--------------------------------------------")
+            cnn_preds.append(self.cnn.predict(img_pred).flatten())
+
+        # convert predictions of all regions to a 2D array
+        cnn_preds = np.asarray(cnn_preds)
+        # find row and column of highest confidence
+        col_max = np.argmax(np.max(cnn_preds, axis=0))
+        row_max = np.argmax(np.max(cnn_preds, axis=1))
+        # if bigger than predicted threshold
+        if cnn_preds[row_max, col_max] > threshold:
+            return (self.get_label_from_onehot(col_max), regions[row_max])
+        else:
+            return None
+
+    def label_pred_image(self, image, pred, pred_region):
+        """
+        draws the bounding box and number predicted and saves the image
+        """
+        COLOR = (255, 255, 0)
+        # Line thickness of 2 px
+        SIZE = 1
+        cv2.rectangle(
+            image,
+            (pred_region["x_min"], pred_region["y_max"]),
+            (pred_region["x_max"], pred_region["y_min"]),
+            COLOR,
+            SIZE,
+        )
+        # font
+        FONT = cv2.FONT_HERSHEY_PLAIN
+
+        # org
+        COORD = (pred_region["x_max"], pred_region["y_max"])
+
+        # fontScale
+        FONTSIZE = 1
+
+        # Using cv2.putText() method
+        image = cv2.putText(
+            image, str(pred), COORD, FONT, FONTSIZE, COLOR, SIZE, cv2.LINE_AA
+        )
+        return image
+
+    def save_pred_image(self, image, image_filename):
+        cv2.imwrite(os.path.join(self.output_dir, image_filename), image)
+
     def detect_numbers(self):
-        for img in self.images:
+        for idx, img in enumerate(self.images):
             regions = self.get_mser_regions(img)
+            regions = self.non_max_supression(regions)
             for region in regions:
                 scaled_regions = self.get_img_pyramid(img, region)
-                self.get_best_pred(img, scaled_regions)
+                pred_result = self.get_best_pred(img, scaled_regions)
+                if pred_result:
+                    pred, pred_region = pred_result
+                    self.images_color[idx] = self.label_pred_image(
+                        self.images_color[idx], pred, pred_region
+                    )
+            self.save_pred_image(self.images_color[idx], "predict_{}.png".format(idx))
