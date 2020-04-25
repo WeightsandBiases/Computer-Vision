@@ -13,7 +13,7 @@ class HouseNumberDetector(object):
         """class constructor of house number detector"""
         self.images = list()
         self.cnn = tf.keras.models.load_model(
-            os.path.join(self.tf_model_dir, model_filename)
+            os.path.join(tf_model_dir, model_filename)
         )
 
     def denoise_img(self, img):
@@ -103,7 +103,7 @@ class HouseNumberDetector(object):
         region,
         w_scales=[1.6, 1.4, 1.2, 1.0, 0.8, 0.6],
         h_scales=[1.4, 1.2, 1.0, 0.8, 0.6, 0.4],
-        visualize=True,
+        visualize=False,
     ):
         """
         generate bounding boxes of different scales for scale invariance
@@ -123,15 +123,14 @@ class HouseNumberDetector(object):
             # CNN model is trained on a 32x32 square image
             # so width is set equal to height
             width = height
-
             width *= w_scales[i]
             scaled_region.update({"x_max": int(region["x_max"] + width / 2)})
             scaled_region.update({"x_min": int(region["x_min"] - width / 2)})
-            scaled_regions.append(scaled_regions)
             # height calculations
             height *= h_scales[i]
             scaled_region.update({"y_max": int(region["y_max"] + height // 2)})
             scaled_region.update({"y_min": int(region["y_min"] - height // 2)})
+            scaled_regions.append(scaled_region)
             # flag for visualizing the MSER regions
             if visualize:
                 img = img.copy()
@@ -149,15 +148,31 @@ class HouseNumberDetector(object):
 
         return scaled_regions
 
-    def get_best_pred(self, img, regions):
+    def get_best_pred(self, img, regions, visualize=False):
         """
         perform non maximal supression to choose the best region
         of prediction
         """
-        # for region in regions:
-
+        img_pred = np.array([])
+        for region in regions:
+            img_pred = img[
+                region["y_min"] : region["y_max"], region["x_min"] : region["x_max"]
+            ]
+            # reorder image to size 1, 32, 32 1
+            img_pred = cv2.resize(img_pred, (32, 32))[:, :, np.newaxis, np.newaxis]
+            # image is now 32, 32, 1, 1. Reorder to 1, 32, 32, 1.
+            ORDER = (3, 0, 1, 2)
+            img_pred = np.transpose(img_pred, ORDER)
+            if visualize:
+                cv2.imshow("img_pred", img_pred)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+            
+            print(self.cnn.predict(img_pred))
+        print("--------------------------------------------")
     def detect_numbers(self):
         for img in self.images:
             regions = self.get_mser_regions(img)
             for region in regions:
                 scaled_regions = self.get_img_pyramid(img, region)
+                self.get_best_pred(img, scaled_regions)
