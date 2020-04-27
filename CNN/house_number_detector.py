@@ -52,7 +52,7 @@ class HouseNumberDetector(object):
         # Parameter regulating filter strength for luminance component.
         # Bigger h value perfectly removes noise but also removes image details,
         # smaller h value preserves details but also preserves some noise
-        H = 22
+        H = 23
         # Size in pixels of the template patch that is used to compute weights.
         # Should be odd. Recommended value 7 pixels
         TEMPLATE_WINDOW_SIZE = 7
@@ -88,7 +88,13 @@ class HouseNumberDetector(object):
             self.images_color.append(img_color)
 
     def get_mser_regions(
-        self, img, min_area=20, max_area=275, delta=18, min_diversity=10000, visualize=False
+        self,
+        img,
+        min_area=25,
+        max_area=250,
+        delta=20,
+        min_diversity=10000,
+        visualize=False,
     ):
         """
         find regions in images where the is likely to be a number
@@ -139,23 +145,59 @@ class HouseNumberDetector(object):
 
         return bounding_boxes
 
+    def get_area(self, region):
+        """
+        calculates the area of a region
+        Args:
+            region(dict): dictionary of x and y min max coordinates
+        Returns (int): overlapping area
+        """
+        return (region["x_max"] - region["x_min"] + 1) * (
+            region["y_max"] - region["y_min"] + 1
+        )
+
+    def is_overlap(self, region_1, region_2):
+        """
+        check two regions to see if they overlap
+        Args:
+            region_1(dict): dictionary of x and y min max coordinates
+            region_2(dict): dictionary of x and y min max coordinates
+        Returns (bool): True if areas overlap
+        """
+        # check horizontal
+        if (
+            region_1["x_min"] > region_2["x_max"]
+            or region_2["x_min"] > region_1["x_max"]
+        ):
+            return False
+        # check vertical
+        if (
+            region_1["y_min"] > region_2["y_max"]
+            or region_2["y_min"] > region_1["y_max"]
+        ):
+            return False
+        return True
+
     def get_overlapping_area(self, region_1, region_2):
         """
         calculates overlapping area of two regions
         Args: 
             region_1(dict): dictionary of x and y min max coordinates
             region_2(dict): dictionary of x and y min max coordinates
-        Returns (int): overlapping area
+        Returns (int): overlapping area, 0 if regions do not overlap
         References:
         https://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
         """
-        overlap_x_min = np.max((region_1["x_min"], region_2["x_min"]))
-        overlap_x_max = np.min((region_1["x_max"], region_2["x_max"]))
-        overlap_y_min = np.max((region_1["y_min"], region_2["y_min"]))
-        overlap_y_max = np.min((region_1["y_max"], region_2["y_max"]))
-        overlap_width = np.min((0, overlap_x_max - overlap_x_min))
-        overlap_height = np.min((0, overlap_y_max - overlap_y_min))
-        return overlap_width * overlap_height
+        if self.is_overlap(region_1, region_2):
+            overlap_x_min = np.max((region_1["x_min"], region_2["x_min"]))
+            overlap_x_max = np.min((region_1["x_max"], region_2["x_max"]))
+            overlap_y_min = np.max((region_1["y_min"], region_2["y_min"]))
+            overlap_y_max = np.min((region_1["y_max"], region_2["y_max"]))
+            overlap_width = overlap_x_max - overlap_x_min
+            overlap_height = overlap_y_max - overlap_y_min
+            return overlap_width * overlap_height
+        else:
+            return 0.0
 
     def get_average_regions(self, region_1, region_2):
         """
@@ -165,64 +207,16 @@ class HouseNumberDetector(object):
             region_2(dict): dictionary of x and y min max coordinates
         Returns (int): an averaged region
         """
-        print("REGION ONE AND TWO")
-        print(region_1)
-        print(region_2)
         for key in region_1.keys():
             region_1[key] = int(np.average((region_1[key], region_2[key])))
-        print(region_1)
         return region_1
-
-    def get_cnn_pred(self, img)
-
-    def non_max_supression(self, regions, area_threshold=2300, visualize=False, img=None):
-        """
-        Non Maximum Supression Malisiewicz et al.
-        References:
-        https://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
-        Args:
-            regions(list): list of dictionary of bounding box coordinates
-            area_threshold: threshold for non max supression, larger values yields
-                            more results
-        """
-        print(regions)
-        for i in range(len(regions) - 1):
-            for j in range(1, len(regions)):
-                # boundary checking because deleting regions list
-                if i >= len(regions) or j >= len(regions):
-                    break
-                region_1 = regions[i]
-                region_2 = regions[j]
-                # if areas are overlapped too much
-                if self.get_overlapping_area(region_1, region_2) > area_threshold:
-                    # get the average of two regions and preserve that value
-                    regions[i] = self.get_average_regions(region_1, region_2)
-                    del regions[j]
-                    # flag for visualizing the MSER regions
-        if visualize:
-            for region in regions:
-                img = img.copy()
-                COLOR = 0
-                cv2.rectangle(
-                    img,
-                    (region["x_min"], region["y_max"]),
-                    (region["x_max"], region["y_min"]),
-                    (COLOR, COLOR, COLOR),
-                    1,
-                )
-                cv2.imshow("img", img)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
-        print("AFTER")
-        print(regions)
-        return regions
 
     def get_img_pyramid(
         self,
         img,
         region,
-        w_scales=(1.6, 1.4, 1.2, 1.0, 0.8, 0.6),
-        h_scales=(1.4, 1.2, 1.0, 0.8, 0.6, 0.4),
+        w_scales=(1.4, 1.2, 1.0, 0.8, 0.6, 0.4),
+        h_scales=(1.2, 1.0, 0.8, 0.6, 0.4, 0.2),
         visualize=False,
     ):
         """
@@ -287,7 +281,7 @@ class HouseNumberDetector(object):
         else:
             return column_idx + 1
 
-    def get_best_pred(self, img, regions, threshold=180, visualize=False):
+    def get_best_pred(self, img, regions, threshold=200, visualize=False):
         """
         perform non maximal supression to choose the best region
         of prediction
@@ -324,36 +318,107 @@ class HouseNumberDetector(object):
             row_max = np.argmax(np.max(cnn_preds, axis=1))
             # if bigger than predicted threshold
             if cnn_preds[row_max, col_max] > threshold:
-                return (self.get_label_from_onehot(col_max), regions[row_max])
+                return {
+                    "prediction": self.get_label_from_onehot(col_max),
+                    "region": regions[row_max],
+                    "score": cnn_preds[row_max, col_max],
+                }
         return None
 
-    def label_pred_image(self, image, pred, pred_region):
+    def non_max_supression(
+        self, results, overlap_threshold=0.75, visualize=False, img=None
+    ):
         """
-        draws the bounding box and number predicted and saves the image
+        Non Maximum Supression Malisiewicz et al.
+        References:
+        https://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
+        Args:
+            regions(list): list of dictionary of bounding box coordinates
+            overlap_threshold: percentage of area overlap before non max supression
+        Returns (list): results after non max supression
+        """
+        # non max supression results to keep
+        nms_results = list()
+        # sort everything by max score
+        ordered_results = sorted(
+            results, key=lambda result: result["score"], reverse=True
+        )
+        while len(ordered_results) > 0:
+            # Select the proposal with highest confidence score,
+            # delete from results add it to the final proposal list.
+            max_score_result = ordered_results.pop(0)
+            nms_results.append(max_score_result)
+            region_msr = max_score_result["region"]
+            area_msr = self.get_area(region_msr)
+            # Now compare this proposal with all the proposals
+            # calculate the IOU (Intersection over Union) of this proposal
+            # with every other proposal. If the IOU is greater than the threshold N,
+            # remove that proposal from B.
+            i = 0
+            while i < len(ordered_results):
+                region_2 = ordered_results[i]["region"]
+                area_2 = self.get_area(region_2)
+                area_min = np.min((area_msr, area_2))
+                percent_overlap = (
+                    self.get_overlapping_area(region_msr, region_2) / area_min
+                )
+                # if areas are overlapped too much
+                if percent_overlap > overlap_threshold:
+                    del ordered_results[i]
+                    i = 0
+                else:
+                    i += 1
+        # visualize results
+        if visualize:
+            for i, result in enumerate(nms_results):
+                region = result["region"]
+                img = img.copy()
+                COLOR = 0
+                cv2.rectangle(
+                    img,
+                    (region["x_min"], region["y_max"]),
+                    (region["x_max"], region["y_min"]),
+                    (COLOR, COLOR, COLOR),
+                    1,
+                )
+                cv2.imshow("img", img)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+        return nms_results
+
+    def label_pred_images(self, image, results):
+        """
+        draws the bounding box and number predicted on the image
         """
         COLOR = (255, 255, 0)
         # Line thickness of 2 px
         SIZE = 1
-        cv2.rectangle(
-            image,
-            (pred_region["x_min"], pred_region["y_max"]),
-            (pred_region["x_max"], pred_region["y_min"]),
-            COLOR,
-            SIZE,
-        )
         # font
         FONT = cv2.FONT_HERSHEY_PLAIN
-
-        # org
-        COORD = (pred_region["x_max"], pred_region["y_max"])
-
         # fontScale
         FONTSIZE = 1
 
-        # Using cv2.putText() method
-        image = cv2.putText(
-            image, str(pred), COORD, FONT, FONTSIZE, COLOR, SIZE, cv2.LINE_AA
-        )
+        for result in results:
+            region = result["region"]
+            COORD = (region["x_max"], region["y_max"])
+            cv2.rectangle(
+                image,
+                (region["x_min"], region["y_max"]),
+                (region["x_max"], region["y_min"]),
+                COLOR,
+                SIZE,
+            )
+            # Using cv2.putText() method
+            image = cv2.putText(
+                image,
+                str(result["prediction"]),
+                COORD,
+                FONT,
+                FONTSIZE,
+                COLOR,
+                SIZE,
+                cv2.LINE_AA,
+            )
         return image
 
     def save_pred_image(self, image, image_filename):
@@ -361,14 +426,13 @@ class HouseNumberDetector(object):
 
     def detect_numbers(self):
         for idx, img in enumerate(self.images):
+            results = list()
             regions = self.get_mser_regions(img)
-            regions = self.non_max_supression(regions, img=img)
             for region in regions:
                 scaled_regions = self.get_img_pyramid(img, region)
                 pred_result = self.get_best_pred(img, scaled_regions)
                 if pred_result:
-                    pred, pred_region = pred_result
-                    self.images_color[idx] = self.label_pred_image(
-                        self.images_color[idx], pred, pred_region
-                    )
+                    results.append(pred_result)
+            results = self.non_max_supression(results, img=img)
+            self.label_pred_images(self.images_color[idx], results)
             self.save_pred_image(self.images_color[idx], "predict_{}.png".format(idx))

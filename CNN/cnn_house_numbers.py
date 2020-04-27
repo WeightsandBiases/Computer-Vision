@@ -152,7 +152,7 @@ class CNNHouseNumbers(object):
     ):
         """
         preprocess the data
-        Args: 
+        Args: 000
             save_preprocess(bool): If true, proprocessed images
                                    and labels are saved in h5py format
             filename (str): If save_preprocess is true, then it will
