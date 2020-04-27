@@ -14,7 +14,14 @@ class HouseNumberDetector(object):
         tf_model_dir="",
         model_filename="CNNHouseNumbersModel.h5",
     ):
-        """class constructor of house number detector"""
+        """
+        class constructor of house number detector
+        Args:
+            input_dir(str): "directory of input images"
+            output_dir(str): "directory of output images"
+            tf_model_dir(str): "directory of tensorflow models"
+            model_filename(str): "name of the tensorflow model"
+        """
         self.images = list()
         self.images_color = list()
         self.input_dir = input_dir
@@ -30,7 +37,7 @@ class HouseNumberDetector(object):
         initialize in class logging
         https://docs.python.org/3.1/library/logging.html
         """
-        self.log = log.getLogger("CNNHouseNumbers")
+        self.log = log.getLogger("HouseNumberDetector")
         self.log.setLevel(log.INFO)
         ch = log.StreamHandler()
         ch.setLevel(log.INFO)
@@ -45,7 +52,7 @@ class HouseNumberDetector(object):
         handle image noise
         Args: 
             img(np.array): numpy array of image
-        Returns(np.array): numpy array 
+        Returns(np.array): numpy array of denoised image
         """
         # denoising parameters
         # from the openCv docs
@@ -66,19 +73,21 @@ class HouseNumberDetector(object):
             img, None, H, TEMPLATE_WINDOW_SIZE, SEARCH_WINDOW_SIZE
         )
 
-    def read_imgs(self, input_dir="input_images", denoise=True):
+    def read_imgs(self, denoise=True):
         """
         read input images in as grayscale images
+        Args:
+            denoise(bool): True if image is to apply noise filtering
         """
-        img_file_paths = [f for f in os.listdir(input_dir) if f.endswith(".png")]
+        img_file_paths = [f for f in os.listdir(self.input_dir) if f.endswith(".png")]
         for img_file_path in img_file_paths:
             # read in image
 
             img = cv2.imread(
-                os.path.join(input_dir, img_file_path), cv2.IMREAD_GRAYSCALE
+                os.path.join(self.input_dir, img_file_path), cv2.IMREAD_GRAYSCALE
             )
 
-            img_color = cv2.imread(os.path.join(input_dir, img_file_path))
+            img_color = cv2.imread(os.path.join(self.input_dir, img_file_path))
 
             # denoise image if flag is set to true
             if denoise:
@@ -104,8 +113,7 @@ class HouseNumberDetector(object):
             max_area(int): the maximum area of a region containing a number
             delta(float): the delta threshold used in MSER region finding
             min_diversity(float): threshold to prune regions that are too similar
-            padding_h(int): number of pixels to pad the height of the bounding box
-            padding_w(int): number of pixels to pad the width of the bounding box
+            visualize(bool): if set to True, will display all mser regions found
         References:
         https://stackoverflow.com/questions/17647500/exact-meaning-of-the-parameters-given-to-initialize-mser-in-opencv-2-4-x
         https://kite.com/python/docs/cv2.MSER
@@ -145,72 +153,6 @@ class HouseNumberDetector(object):
 
         return bounding_boxes
 
-    def get_area(self, region):
-        """
-        calculates the area of a region
-        Args:
-            region(dict): dictionary of x and y min max coordinates
-        Returns (int): overlapping area
-        """
-        return (region["x_max"] - region["x_min"] + 1) * (
-            region["y_max"] - region["y_min"] + 1
-        )
-
-    def is_overlap(self, region_1, region_2):
-        """
-        check two regions to see if they overlap
-        Args:
-            region_1(dict): dictionary of x and y min max coordinates
-            region_2(dict): dictionary of x and y min max coordinates
-        Returns (bool): True if areas overlap
-        """
-        # check horizontal
-        if (
-            region_1["x_min"] > region_2["x_max"]
-            or region_2["x_min"] > region_1["x_max"]
-        ):
-            return False
-        # check vertical
-        if (
-            region_1["y_min"] > region_2["y_max"]
-            or region_2["y_min"] > region_1["y_max"]
-        ):
-            return False
-        return True
-
-    def get_overlapping_area(self, region_1, region_2):
-        """
-        calculates overlapping area of two regions
-        Args: 
-            region_1(dict): dictionary of x and y min max coordinates
-            region_2(dict): dictionary of x and y min max coordinates
-        Returns (int): overlapping area, 0 if regions do not overlap
-        References:
-        https://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
-        """
-        if self.is_overlap(region_1, region_2):
-            overlap_x_min = np.max((region_1["x_min"], region_2["x_min"]))
-            overlap_x_max = np.min((region_1["x_max"], region_2["x_max"]))
-            overlap_y_min = np.max((region_1["y_min"], region_2["y_min"]))
-            overlap_y_max = np.min((region_1["y_max"], region_2["y_max"]))
-            overlap_width = overlap_x_max - overlap_x_min
-            overlap_height = overlap_y_max - overlap_y_min
-            return overlap_width * overlap_height
-        else:
-            return 0.0
-
-    def get_average_regions(self, region_1, region_2):
-        """
-        averages the minimum and maximum values of two regions
-        Args: 
-            region_1(dict): dictionary of x and y min max coordinates
-            region_2(dict): dictionary of x and y min max coordinates
-        Returns (int): an averaged region
-        """
-        for key in region_1.keys():
-            region_1[key] = int(np.average((region_1[key], region_2[key])))
-        return region_1
-
     def get_img_pyramid(
         self,
         img,
@@ -222,11 +164,14 @@ class HouseNumberDetector(object):
         """
         generate bounding boxes of different scales for scale invariance
         Args:
+            img(np.array): numpy image file
             region(dict): dictionary of points of the original bounding box
             w_scales(list): list of floating point scales to scale the bounding
                             box width
             h_scales(list): list of floating point scales to scale the bounding
                             box height
+            visualize(bool): if set to true, will display the scaled bounding 
+                             boxes
         returns (list): list of dictionaries of the rescaled bounding boxes
         """
         scaled_regions = list()
@@ -292,7 +237,8 @@ class HouseNumberDetector(object):
                                if threshold is not met, we do not predict a 
                                number
             visualize (bool): flag for displaying the image within bounding boxes
-
+        Returns(dict): dictionary of prediction, region, and score values
+                       None if prediction does not match threshold
         """
         cnn_preds = list()
         for region in regions:
@@ -325,6 +271,62 @@ class HouseNumberDetector(object):
                 }
         return None
 
+    def get_area(self, region):
+        """
+        calculates the area of a region
+        Args:
+            region(dict): dictionary of x and y min max coordinates
+        Returns (int): total area captured by region
+        """
+        return (region["x_max"] - region["x_min"] + 1) * (
+            region["y_max"] - region["y_min"] + 1
+        )
+
+    def is_overlap(self, region_1, region_2):
+        """
+        check two regions to see if they overlap
+        Args:
+            region_1(dict): dictionary of x and y min max coordinates
+            region_2(dict): dictionary of x and y min max coordinates
+        Returns (bool): True if areas overlap
+        References:
+        https://www.geeksforgeeks.org/find-two-rectangles-overlap/
+        """
+        # check horizontal
+        if (
+            region_1["x_min"] > region_2["x_max"]
+            or region_2["x_min"] > region_1["x_max"]
+        ):
+            return False
+        # check vertical
+        if (
+            region_1["y_min"] > region_2["y_max"]
+            or region_2["y_min"] > region_1["y_max"]
+        ):
+            return False
+        return True
+
+    def get_overlapping_area(self, region_1, region_2):
+        """
+        calculates overlapping area of two regions
+        Args: 
+            region_1(dict): dictionary of x and y min max coordinates
+            region_2(dict): dictionary of x and y min max coordinates
+        Returns (int): overlapping area, 0 if regions do not overlap
+        References:
+        https://math.stackexchange.com/questions/99565/simplest-way-to-calculate-the-intersect-area-of-two-rectangles
+        """
+        if self.is_overlap(region_1, region_2):
+            overlap_x_min = np.max((region_1["x_min"], region_2["x_min"]))
+            overlap_x_max = np.min((region_1["x_max"], region_2["x_max"]))
+            overlap_y_min = np.max((region_1["y_min"], region_2["y_min"]))
+            overlap_y_max = np.min((region_1["y_max"], region_2["y_max"]))
+            overlap_width = overlap_x_max - overlap_x_min
+            overlap_height = overlap_y_max - overlap_y_min
+            return overlap_width * overlap_height
+        else:
+            return 0
+
     def non_max_supression(
         self, results, overlap_threshold=0.75, visualize=False, img=None
     ):
@@ -334,7 +336,12 @@ class HouseNumberDetector(object):
         https://www.pyimagesearch.com/2015/02/16/faster-non-maximum-suppression-python/
         Args:
             regions(list): list of dictionary of bounding box coordinates
-            overlap_threshold: percentage of area overlap before non max supression
+            overlap_threshold: percentage of area overlap before non max 
+                               supression
+            visualize(bool): if true, results after non max supression 
+                             will be shown
+            img(np.array): image, must have a value if visualize is True
+
         Returns (list): results after non max supression
         """
         # non max supression results to keep
@@ -386,9 +393,23 @@ class HouseNumberDetector(object):
                 cv2.destroyAllWindows()
         return nms_results
 
+    def init_image_output_dir(self):
+        """
+        set up the image output directory
+        """
+        if tf.io.gfile.exists(self.output_dir):
+            tf.io.gfile.rmtree(self.output_dir)
+        else:
+            tf.io.gfile.mkdir(self.output_dir)
+
+
     def label_pred_images(self, image, results):
         """
         draws the bounding box and number predicted on the image
+        Args: 
+            image(np.array): image to be labeled
+            results(dict): results to label the image with
+        Returns(np.array): image with the bounding box and label
         """
         COLOR = (255, 255, 0)
         # Line thickness of 2 px
@@ -422,10 +443,24 @@ class HouseNumberDetector(object):
         return image
 
     def save_pred_image(self, image, image_filename):
+        """
+        saves the prediction image
+        Args: 
+            image(np.array): image to be saved
+            image_filename: filename of image to be saved
+        """
         cv2.imwrite(os.path.join(self.output_dir, image_filename), image)
 
     def detect_numbers(self):
+        """
+        detects numbers in the images of the input directory and
+        puts them in the output directory
+        """
+        self.init_image_output_dir()
         for idx, img in enumerate(self.images):
+            self.log.info(
+                "CNN processing {} of {} images".format(idx, len(self.images))
+            )
             results = list()
             regions = self.get_mser_regions(img)
             for region in regions:

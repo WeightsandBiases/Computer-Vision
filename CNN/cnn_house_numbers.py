@@ -18,8 +18,8 @@ class CNNHouseNumbers(object):
     def __init__(
         self,
         n_labels=10,
-        img_dir="",
-        output_dir="",
+        training_img_dir="trainig_images",
+        tf_model_dir="tf_model",
         tf_log_dir="tf_logs",
         train_filename="train_32x32.mat",
         test_filename="test_32x32.mat",
@@ -30,15 +30,15 @@ class CNNHouseNumbers(object):
         Args:
             n_labels (int): total number of labels of the data
             img_dir_path (str): directory path for test and train images
-            output_dir (str): directory for the h5py preprocessed data
+            tf_model_dir (str): directory for the h5py preprocessed data
             tf_log_dir (str): directory used to set up tf logging
             train_filename (str): file name for the training images
             test_filename(str): file name for the testing images
             vald_filename(str): file name for the validation images
         """
         self.n_labels = n_labels
-        self.img_dir = img_dir
-        self.output_dir = output_dir
+        self.img_dir = training_img_dir
+        self.tf_model_dir = tf_model_dir
         self.tf_log_dir = tf_log_dir
         self.train_filename = train_filename
         self.test_filename = test_filename
@@ -147,6 +147,15 @@ class CNNHouseNumbers(object):
         encoded_labels = OneHotEncoder(sparse=False).fit_transform(labels)
         return encoded_labels
 
+    def init_tf_model_dir(self):
+        """
+        set up the tensorflow model directory
+        """
+        if tf.io.gfile.exists(self.tf_model_dir):
+            return None
+        else:
+            tf.io.gfile.mkdir(self.tf_model_dir)
+
     def preprocess(
         self, save_preprocess=True, pre_process_filename="CNN_PreProc_Dataset.h5"
     ):
@@ -160,6 +169,7 @@ class CNNHouseNumbers(object):
                             in h5py format
         """
         self.log.info("preprocessing image data")
+        self.init_tf_model_dir()
         X_train, y_train = self.load_mat_imgs(self.train_filename)
         X_test, y_test = self.load_mat_imgs(self.test_filename)
         X_vald, y_vald = self.load_mat_imgs(self.vald_filename)
@@ -193,7 +203,7 @@ class CNNHouseNumbers(object):
         if save_preprocess:
             self.log.info("saving preproccessed data")
             # save preprocessed data in h5py format
-            file_path = os.path.join(self.output_dir, pre_process_filename)
+            file_path = os.path.join(self.tf_model_dir, pre_process_filename)
             with h5py.File(file_path, "w") as h5fd:
                 h5fd.create_dataset("X_train", data=X_train)
                 h5fd.create_dataset("y_train", data=y_train)
@@ -219,7 +229,7 @@ class CNNHouseNumbers(object):
             pre processed data
         """
         self.log.info("loading preproccessed data")
-        file_path = os.path.join(self.output_dir, pre_process_filename)
+        file_path = os.path.join(self.tf_model_dir, pre_process_filename)
         with h5py.File(file_path, "r") as h5fd:
             self.X_train = h5fd["X_train"][:]
             self.y_train = h5fd["y_train"][:]
@@ -255,6 +265,7 @@ class CNNHouseNumbers(object):
         """
         # self.check_gpu()
         self.init_tf_logs()
+        self.init_tf_model_dir()
         self.init_placeholders()
 
     def train_cnn(
@@ -314,4 +325,4 @@ class CNNHouseNumbers(object):
 
         if save_model:
             # save the model in h5py format
-            cnn_model.save(os.path.join(self.output_dir, model_filename))
+            cnn_model.save(os.path.join(self.tf_model_dir, model_filename))
