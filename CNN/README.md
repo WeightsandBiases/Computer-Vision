@@ -2,7 +2,7 @@
 
 ### Project Description
 
-This project consists of a digit detection system which takes a single image and returns any sequence of digits visible in that image.  It aims to solve the challenges in computer vision and image classification by overcoming the following common obstacles:
+This project consists of a digit detection system which takes a sequence of images and returns any sequence of digits visible in the images.  It aims to solve the challenges in computer vision and image classification by overcoming the following common obstacles:
 
 - Scale Invariance - Categorize numbers of different scales in the image
 - Location Invariance - Categorize numbers of different locations in the image
