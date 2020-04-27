@@ -4,3 +4,6 @@
 *.jpg
 *.jpeg
 *.pyc
+*.drawio
+!input_images/
+!readme_images/

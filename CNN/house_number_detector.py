@@ -402,7 +402,6 @@ class HouseNumberDetector(object):
         else:
             tf.io.gfile.mkdir(self.output_dir)
 
-
     def label_pred_images(self, image, results):
         """
         draws the bounding box and number predicted on the image
